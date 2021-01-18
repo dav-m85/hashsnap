@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -24,96 +25,10 @@ type Group struct {
 	fsize int64
 }
 
-func main() {
-	start := time.Now()
-
-	// var help = flag.Bool("h", false, "Display this message")
-	flag.Parse()
-	// if *help {
-	// 	fmt.Println("\nduplicates is a command line tool to find duplicate files in a folder\n")
-	// 	fmt.Println("usage: duplicates [options...] path\n")
-	// 	flag.PrintDefaults()
-	// 	os.Exit(0)
-	// }
-	if len(flag.Args()) < 1 {
-		fmt.Fprintf(os.Stderr, "You have to specify at least a directory to explore ...\n")
-		os.Exit(-1)
-	}
-	root := flag.Arg(0)
-
-	files := make([]*File, 0)
-	fileChan := make(chan *File)
-	ok := make(chan int)
-
-	hasher := func(fileCh chan *File, done chan int) {
-		for f := range fileCh {
-			// f.ComputeHash()
-			mutex.Lock()
-			files = append(files, f)
-			mutex.Unlock()
-		}
-		done <- 1
-	}
-
-	/*
-			if singleThread {
-		    go worker(1, jobs, results, walkProgress)
-		  } else {
-		    for w := 1; w <= runtime.NumCPU(); w++ {
-		      go worker(w, jobs, results, walkProgress)
-		    }
-		  }
-	*/
-
-	go hasher(fileChan, ok)
-
-	// Très rapide !
-	file.Walk(root, visitor(fileChan))
-	close(fileChan)
-
-	<-ok
-
-	t := time.Now()
-	elapsed := t.Sub(start)
-
-	fmt.Printf("Hashing finished after %s", elapsed)
-
-	// We got a file here !
-
-	// files is full here
-	// fmt.Printf("%v\n", files)
-	// fmt.Printf("%v\n", matches)
-
-	// check for matching hash
-	matches := make(map[[sha1.Size]byte]*Group)
-
-	for _, f := range files {
-		match, ok := matches[f.hash]
-		if ok {
-			// matching group found; add this file to existing group
-			match.files = append(match.files, f)
-		} else {
-			// create new group in map
-			matches[f.hash] = &Group{[]*File{f}, f.size}
-		}
-	}
-
-	for _, group := range matches {
-		if len(group.files) > 1 {
-			fmt.Println("Duplicates\n", group.files)
-		}
-	}
-}
-
-// gd file struct
 type File struct {
 	path string
 	size int64
 	hash [sha1.Size]byte // hash.Hash // sha1.New()
-}
-
-func (f File) String() string {
-	return fmt.Sprintf("%s(%d)[sha1:%x]", f.path, f.size, f.hash)
 }
 
 func (f *File) ComputeHash() error {
@@ -123,17 +38,28 @@ func (f *File) ComputeHash() error {
 	}
 	h := sha1.New()
 	defer fd.Close()
-	if _, err := io.Copy(h, fd); err != nil {
+	var b int64
+	if b, err = io.Copy(h, fd); err != nil {
 		return err
 	}
+	fmt.Printf("%d copied\n", b)
 
 	copy(f.hash[:], h.Sum(nil)) // [sha1.Size]byte()
 
 	return nil
 }
 
-// visitor collects files found by file.Walk()
-func visitor(files chan *File) file.WalkFunc {
+type Snapshot struct {
+	files []*File
+	tsize int64
+}
+
+func (sn Snapshot) String() string {
+	return fmt.Sprintf("Snapshot holds %d files, totalling %d bytes", len(sn.files), sn.tsize)
+}
+
+// Walker collects files found by file.Walk into the Snapshot
+func (sn *Snapshot) Walker() file.WalkFunc {
 	return func(path string, info os.FileInfo, err error) error {
 		// fmt.Printf("%s\n", path)
 		if err != nil {
@@ -164,7 +90,92 @@ func visitor(files chan *File) file.WalkFunc {
 			return nil
 		}
 
-		files <- &File{path: path, size: info.Size()}
+		sn.files = append(sn.files, &File{path: path, size: info.Size()})
+		sn.tsize = sn.tsize + info.Size()
 		return nil
 	}
+}
+
+func main() {
+	start := time.Now()
+
+	// var help = flag.Bool("h", false, "Display this message")
+	flag.Parse()
+	// if *help {
+	// 	fmt.Println("\nduplicates is a command line tool to find duplicate files in a folder\n")
+	// 	fmt.Println("usage: duplicates [options...] path\n")
+	// 	flag.PrintDefaults()
+	// 	os.Exit(0)
+	// }
+	if len(flag.Args()) < 1 {
+		fmt.Fprintf(os.Stderr, "You have to specify at least a directory to explore ...\n")
+		os.Exit(-1)
+	}
+	root := flag.Arg(0)
+
+	var wg sync.WaitGroup
+
+	hasher := func(fileCh chan *File) {
+		defer wg.Done()
+		for f := range fileCh {
+			f.ComputeHash()
+		}
+	}
+
+	// Très rapide !
+	snap := Snapshot{}
+	file.Walk(root, snap.Walker())
+
+	fmt.Printf("%s\n", snap)
+
+	fileChan := make(chan *File)
+
+	for w := 0; w < runtime.NumCPU(); w++ {
+		wg.Add(1)
+		go hasher(fileChan)
+	}
+
+	go func() {
+		for _, f := range snap.files {
+			fileChan <- f
+		}
+		close(fileChan)
+	}()
+
+	wg.Wait()
+
+	t := time.Now()
+	elapsed := t.Sub(start)
+
+	fmt.Printf("Hashing finished after %s", elapsed)
+
+	// We got a file here !
+
+	// files is full here
+	// fmt.Printf("%v\n", files)
+	// fmt.Printf("%v\n", matches)
+
+	// check for matching hash
+	matches := make(map[[sha1.Size]byte]*Group)
+
+	for _, f := range snap.files {
+		match, ok := matches[f.hash]
+		if ok {
+			// matching group found; add this file to existing group
+			match.files = append(match.files, f)
+		} else {
+			// create new group in map
+			matches[f.hash] = &Group{[]*File{f}, f.size}
+		}
+	}
+
+	// for _, group := range matches {
+	// 	if len(group.files) > 1 {
+	// 		fmt.Println("Duplicates\n", group.files)
+	// 	}
+	// }
+}
+
+func (f File) String() string {
+	return fmt.Sprintf("%s(%d)[sha1:%x]", f.path, f.size, f.hash)
 }
