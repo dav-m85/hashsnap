@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/dav-m85/hashsnap/file"
 )
@@ -24,6 +25,8 @@ type Group struct {
 }
 
 func main() {
+	start := time.Now()
+
 	// var help = flag.Bool("h", false, "Display this message")
 	flag.Parse()
 	// if *help {
@@ -39,26 +42,14 @@ func main() {
 	root := flag.Arg(0)
 
 	files := make([]*File, 0)
-	matches := make(map[[sha1.Size]byte]*Group)
 	fileChan := make(chan *File)
 	ok := make(chan int)
 
 	hasher := func(fileCh chan *File, done chan int) {
 		for f := range fileCh {
-			f.ComputeHash()
+			// f.ComputeHash()
 			mutex.Lock()
 			files = append(files, f)
-
-			// check for matching hash
-			match, ok := matches[f.hash]
-			if ok {
-				// matching group found; add this file to existing group
-				match.files = append(match.files, f)
-			} else {
-				// create new group in map
-				matches[f.hash] = &Group{[]*File{f}, f.size}
-			}
-
 			mutex.Unlock()
 		}
 		done <- 1
@@ -76,10 +67,16 @@ func main() {
 
 	go hasher(fileChan, ok)
 
+	// Très rapide !
 	file.Walk(root, visitor(fileChan))
 	close(fileChan)
 
 	<-ok
+
+	t := time.Now()
+	elapsed := t.Sub(start)
+
+	fmt.Printf("Hashing finished after %s", elapsed)
 
 	// We got a file here !
 
@@ -87,9 +84,23 @@ func main() {
 	// fmt.Printf("%v\n", files)
 	// fmt.Printf("%v\n", matches)
 
+	// check for matching hash
+	matches := make(map[[sha1.Size]byte]*Group)
+
+	for _, f := range files {
+		match, ok := matches[f.hash]
+		if ok {
+			// matching group found; add this file to existing group
+			match.files = append(match.files, f)
+		} else {
+			// create new group in map
+			matches[f.hash] = &Group{[]*File{f}, f.size}
+		}
+	}
+
 	for _, group := range matches {
 		if len(group.files) > 1 {
-			fmt.Println("Duplicate for %s\n", group.files)
+			fmt.Println("Duplicates\n", group.files)
 		}
 	}
 }
