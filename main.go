@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/dav-m85/hashsnap/file"
+	bar "github.com/schollz/progressbar/v3"
 )
 
 // 2min pour 6Go SSD avec mon quad core
@@ -31,18 +32,17 @@ type File struct {
 	hash [sha1.Size]byte // hash.Hash // sha1.New()
 }
 
-func (f *File) ComputeHash() error {
+func (f *File) ComputeHash(pbar *bar.ProgressBar) error {
 	fd, err := os.Open(f.path)
 	if err != nil {
 		return err
 	}
 	h := sha1.New()
 	defer fd.Close()
-	var b int64
-	if b, err = io.Copy(h, fd); err != nil {
+
+	if _, err = io.Copy(io.MultiWriter(h, pbar), fd); err != nil {
 		return err
 	}
-	fmt.Printf("%d copied\n", b)
 
 	copy(f.hash[:], h.Sum(nil)) // [sha1.Size]byte()
 
@@ -115,24 +115,28 @@ func main() {
 
 	var wg sync.WaitGroup
 
-	hasher := func(fileCh chan *File) {
+	hasher := func(fileCh chan *File, pbar *bar.ProgressBar) {
 		defer wg.Done()
 		for f := range fileCh {
-			f.ComputeHash()
+			f.ComputeHash(pbar)
 		}
 	}
 
 	// Très rapide !
 	snap := Snapshot{}
 	file.Walk(root, snap.Walker())
-
 	fmt.Printf("%s\n", snap)
+
+	pbar := bar.DefaultBytes(
+		snap.tsize,
+		"Hashing",
+	)
 
 	fileChan := make(chan *File)
 
 	for w := 0; w < runtime.NumCPU(); w++ {
 		wg.Add(1)
-		go hasher(fileChan)
+		go hasher(fileChan, pbar)
 	}
 
 	go func() {
