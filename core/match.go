@@ -17,6 +17,9 @@ func (sn *Snapshot) Dedup() {
 	for _, f := range sn.Files {
 		match, ok := matches[f.Hash]
 		if ok {
+			if match.Tsize != f.Size {
+				fmt.Printf("Collision, same hash but different size")
+			}
 			// matching group found; add this file to existing group
 			match.Files = append(match.Files, f)
 		} else {
