@@ -50,7 +50,8 @@ func main() {
 	dedupCmd.AddPositionalValue(&local, "file", 1, true, "Input file")
 
 	// Add a flag to the subcommand
-	// createCmd.String(&stringFlagF, "t", "testFlag", "A test string flag")
+	var withs []string
+	dedupCmd.StringSlice(&withs, "w", "with", "Hashsnap to dedup against")
 
 	// add a global bool flag for fun
 	//flaggy.Bool(&boolFlagB, "y", "yes", "A sample boolean flag")
@@ -62,8 +63,8 @@ func main() {
 	// Parse the subcommand and all flags
 	flaggy.Parse()
 
-	// we can check if a subcommand was used easily
-	if createCmd.Used {
+	switch {
+	case createCmd.Used:
 		var roots []string
 		base, err := os.Getwd()
 		if err != nil {
@@ -79,18 +80,19 @@ func main() {
 		if err != nil {
 			log.Fatal("Cannot save:", err)
 		}
-	}
 
-	if dedupCmd.Used {
+	case dedupCmd.Used:
 		// Très rapide !
-		snap, err := core.ReadSnapshotFrom(local)
+		snap := core.MustReadSnapshotFrom(local)
 
-		if err != nil {
-			log.Fatal("Cannot read:", err)
+		if len(withs) == 0 {
+			snap.Group().Dedup()
+		} else {
+			w := core.MustReadSnapshotFrom(withs[0])
+			snap.DedupWith(w.Group())
 		}
 
-		fmt.Println("%#v", snap)
-		snap.Dedup()
+	default:
+		fmt.Println("Use --help")
 	}
-	// fmt.Println(flaggy.TrailingArguments[0:])
 }

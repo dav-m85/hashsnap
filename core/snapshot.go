@@ -157,3 +157,11 @@ func ReadSnapshotFrom(path string) (*Snapshot, error) {
 	}
 	return &sn, nil
 }
+
+func MustReadSnapshotFrom(path string) *Snapshot {
+	s, err := ReadSnapshotFrom(path)
+	if err != nil {
+		panic(err)
+	}
+	return s
+}
