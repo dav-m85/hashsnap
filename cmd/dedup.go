@@ -26,6 +26,7 @@ var dedupCmd = &cobra.Command{
 		}
 
 		fmt.Println("%#v", snap)
+		snap.Dedup()
 
 		// check for matching hash
 		// matches := make(map[[sha1.Size]byte]*Group)

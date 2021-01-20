@@ -16,11 +16,6 @@ import (
 	bar "github.com/schollz/progressbar/v3"
 )
 
-type Group struct {
-	Files []*File
-	Tsize int64
-}
-
 type File struct {
 	Path string
 	Size int64
