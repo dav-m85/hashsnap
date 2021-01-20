@@ -1,5 +1,9 @@
 package core
 
+// This file is a very naive copy of the golang "file" package, with a slight
+// modification for performance: Walk DOES NOT sort results, since it is of no
+// use for us
+
 import (
 	"os"
 	"path/filepath"

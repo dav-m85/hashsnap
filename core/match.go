@@ -5,13 +5,16 @@ import (
 	"fmt"
 )
 
+// Group aka duplicates
 type Group struct {
 	Files []*File
 	Size  int64
 }
 
+// HashGroup helps comparing Hashes pretty quickly
 type HashGroup map[[sha1.Size]byte]*Group
 
+// Dedup reports duplicates within an HashGroup
 func (h *HashGroup) Dedup() {
 	for _, group := range *h {
 		if len(group.Files) > 1 {
@@ -20,6 +23,7 @@ func (h *HashGroup) Dedup() {
 	}
 }
 
+// DedupWith reports duplicates belonging both to a Snapshot and a given HashGroup
 func (sn *Snapshot) DedupWith(hb *HashGroup) {
 	for _, f := range sn.Files {
 		match, ok := (*hb)[f.Hash]
@@ -33,6 +37,7 @@ func (sn *Snapshot) DedupWith(hb *HashGroup) {
 	}
 }
 
+// Group computes the Snapshot's HashGroup
 func (sn *Snapshot) Group() *HashGroup {
 	// check for matching hash
 	matches := make(HashGroup)

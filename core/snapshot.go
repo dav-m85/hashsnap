@@ -16,6 +16,7 @@ import (
 	bar "github.com/schollz/progressbar/v3"
 )
 
+// File is... a file yeah, but hopefuly with an Hash to be compared against
 type File struct {
 	Path string
 	Size int64
@@ -26,6 +27,7 @@ func (f File) String() string {
 	return fmt.Sprintf("%s(%d)[sha1:%x]", f.Path, f.Size, f.Hash)
 }
 
+// ComputeHash reads the file and computes the sha1 of it
 func (f *File) ComputeHash(pbar *bar.ProgressBar) error {
 	fd, err := os.Open(f.Path)
 	if err != nil {
@@ -43,6 +45,7 @@ func (f *File) ComputeHash(pbar *bar.ProgressBar) error {
 	return nil
 }
 
+// Snapshot holds Files with their Hashes, along with some casual informations
 type Snapshot struct {
 	Files []*File
 	Tsize int64
@@ -91,6 +94,8 @@ func (sn *Snapshot) Walker() WalkFunc {
 	}
 }
 
+// ComputeHashes makes sure all files in the Snapshot have a Hash. It is the slowest
+// piece of code here, hence the goroutine workers for heavy parallelization.
 func (sn *Snapshot) ComputeHashes() {
 	var wg sync.WaitGroup
 
@@ -101,7 +106,6 @@ func (sn *Snapshot) ComputeHashes() {
 		}
 	}
 
-	// Très rapide !
 	Walk(sn.Root, sn.Walker())
 	fmt.Printf("%s\n", sn)
 
@@ -127,6 +131,7 @@ func (sn *Snapshot) ComputeHashes() {
 	wg.Wait()
 }
 
+// SaveTo stores a snapshot file
 func (sn *Snapshot) SaveTo(path string) error {
 	f, err := os.Create(path)
 	if err != nil {
@@ -141,6 +146,7 @@ func (sn *Snapshot) SaveTo(path string) error {
 	return enc.Encode(sn)
 }
 
+// ReadSnapshotFrom decodes a snapshot file given its path
 func ReadSnapshotFrom(path string) (*Snapshot, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -158,6 +164,7 @@ func ReadSnapshotFrom(path string) (*Snapshot, error) {
 	return &sn, nil
 }
 
+// MustReadSnapshotFrom is a frightened ReadSnapshotFrom, it panicks on error
 func MustReadSnapshotFrom(path string) *Snapshot {
 	s, err := ReadSnapshotFrom(path)
 	if err != nil {
