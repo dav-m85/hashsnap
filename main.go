@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
-	"github.com/dav-m85/hashsnap/core"
+	// "github.com/dav-m85/hashsnap/core"
+	"github.com/dav-m85/hashsnap/ncore"
 	"github.com/integrii/flaggy"
 )
 
@@ -34,30 +36,29 @@ func main() {
 	// Main subcommand handling switch
 	switch {
 	case createCmd.Used:
-		var roots []string
 		base, err := os.Getwd()
 		if err != nil {
 			panic(err)
 		}
-		roots = append(roots, base)
+		// var roots []string
+		// roots = append(roots, base)
 
-		snap := core.Snapshot{Root: base}
-		snap.ComputeHashes()
+		base = filepath.Join(base, "../silo")
 
-		err = snap.SaveTo(local)
+		err = ncore.Create(base, "yolo.hsnap")
 		if err != nil {
 			log.Fatal("Cannot save:", err)
 		}
 
-	case dedupCmd.Used:
-		snap := core.MustReadSnapshotFrom(local)
+	// case dedupCmd.Used:
+	// 	snap := core.MustReadSnapshotFrom(local)
 
-		if len(withs) == 0 {
-			snap.Group().Dedup()
-		} else {
-			w := core.MustReadSnapshotFrom(withs[0])
-			snap.DedupWith(w.Group())
-		}
+	// 	if len(withs) == 0 {
+	// 		snap.Group().Dedup()
+	// 	} else {
+	// 		w := core.MustReadSnapshotFrom(withs[0])
+	// 		snap.DedupWith(w.Group())
+	// 	}
 
 	default:
 		fmt.Println("Use --help")
