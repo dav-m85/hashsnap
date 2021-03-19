@@ -1,5 +1,7 @@
+Work in progress
+
 # hashsnap
-Create a hash snapshot of a file tree, and perform deduplicationusing multiple snapshots.
+Create a hash snapshot of a file tree, and perform deduplication using multiple snapshots.
 
 ## Usage
 Say you have a directory `somedir`, and want to deduplicate it.
@@ -33,9 +35,3 @@ want to compare with distant files. Find maybe a smarter way of hashing ? differ
 ## Inspiration
 - [mathieuancelin/duplicates](https://github.com/mathieuancelin/duplicates/blob/master/duplicates.go)
 - [SeeSpotRun gist](https://gist.github.com/SeeSpotRun/456b88424841d7ae735f)
-
-
-go run main.go create test.hsnap
-go run main.go dedup test.hsnap -w cwd.hsnap
-go run main.go dedup test.hsnap
-
