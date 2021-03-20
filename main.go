@@ -25,19 +25,19 @@ func main() {
 	createCmd.String(&root, "root", "r", "Root of the filetree to snapshot. Must be absolute. Defaults to current work directory.")
 	createCmd.Bool(&progress, "progress", "p", "Progress bar for hashing speed.")
 
-	// dedup
-	// dedupCmd := flaggy.NewSubcommand("dedup")
-	// flaggy.AttachSubcommand(dedupCmd, 1)
-	// dedupCmd.AddPositionalValue(&snapshot, "file", 1, true, "Input file")
-
-	// var withs []string
-	// dedupCmd.StringSlice(&withs, "w", "with", "Hashsnap to dedup against")
-
 	// list
 	listCmd := flaggy.NewSubcommand("list")
 	flaggy.AttachSubcommand(listCmd, 1)
 	listCmd.AddPositionalValue(&snapshot, "file", 1, true, "Input file")
 	listCmd.Description = "List content of a snapshot file"
+
+	// dedup
+	dedupCmd := flaggy.NewSubcommand("dedup")
+	flaggy.AttachSubcommand(dedupCmd, 1)
+	dedupCmd.AddPositionalValue(&snapshot, "file", 1, true, "Input file")
+
+	// var withs []string
+	// dedupCmd.StringSlice(&withs, "w", "with", "Hashsnap to dedup against")
 
 	flaggy.Parse()
 
@@ -63,7 +63,8 @@ func main() {
 	case listCmd.Used:
 		core.List(snapshot)
 
-	// case dedupCmd.Used:
+	case dedupCmd.Used:
+		core.Dedup(snapshot)
 	// 	snap := core.MustReadSnapshotFrom(local)
 
 	// 	if len(withs) == 0 {

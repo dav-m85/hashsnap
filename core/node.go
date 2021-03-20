@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 
@@ -64,7 +65,7 @@ func MakeNode(parent *Node, name string) (*Node, error) {
 func MakeRootNode(path string) *Node {
 	info, err := lstat(path)
 	if err != nil {
-		panic("Cannot create root node")
+		log.Fatalf("Cannot create root node: %s", err)
 	}
 	return &Node{
 		Mode:     info.Mode(),

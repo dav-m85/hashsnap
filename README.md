@@ -19,6 +19,9 @@ them removed of somedir
     # In somedir
     hashsnap dedup somedir.hsnap --with nas.hsnap
 
+Running on a NAS without screen/tmux and forgetting about it:
+
+    nohup hashsnap... </dev/null >hashsnap.log &2>1 &
 
 ## Bench
 On my quadcore + SSD workstation, it takes ~2min to hash 6GB of data, resulting in a ~360k hashsnap file.
