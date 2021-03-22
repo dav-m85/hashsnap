@@ -189,18 +189,32 @@ func reader(path string, out chan<- *Node) {
 	}
 	defer f.Close()
 
+	nodes := make(map[uint64]*Node)
+
 	w := bufio.NewReader(f)
 	enc := gob.NewDecoder(w)
 	for {
-		var n Node
-		err := enc.Decode(&n)
+		var n *Node = &Node{}
+		err := enc.Decode(n)
 		if err != nil {
 			if err != io.EOF {
 				log.Printf("Decoder encountered an issue: %s\n", err)
 			}
 			break
 		}
-		out <- &n
+
+		// Lets fill parent
+		nodes[n.ID] = n
+		if n.ParentID != 0 {
+			parent, ok := nodes[n.ParentID]
+			if !ok {
+				log.Printf("Cannot solve parent")
+				continue
+			}
+			n.parent = parent
+		}
+
+		out <- n
 	}
 	close(out)
 }

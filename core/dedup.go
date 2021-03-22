@@ -17,11 +17,19 @@ type HashGroup map[[sha1.Size]byte]*Group
 
 // Dedup reports duplicates within an HashGroup
 func (h *HashGroup) Dedup() {
+	var dupGroup uint64 = 0
+	var dupSize uint64 = 0
 	for _, group := range *h {
 		if len(group.Nodes) > 1 {
-			fmt.Println("Duplicates\n", group.Nodes)
+			cnt := len(group.Nodes)
+			fmt.Printf("Duplicates %s, %d times\n", group.Nodes[0].Name, len(group.Nodes))
+			dupGroup++
+			dupSize = dupSize + group.Size*uint64(cnt-1)
+
+			fmt.Println(group.Nodes[0].Path())
 		}
 	}
+	fmt.Printf("Found %d duplicated groups, totalling %d bytes", dupGroup, dupSize)
 }
 
 // DedupWith reports duplicates belonging both to a Snapshot and a given HashGroup

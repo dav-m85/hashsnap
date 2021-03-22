@@ -41,6 +41,18 @@ func (n Node) String() string {
 	return fmt.Sprintf("%d (in %d), %s %d %s", n.ID, n.ParentID, n.Name, n.Size, n.path)
 }
 
+// Path retrieve the absolute path of current Node by walking the parent tree
+func (n Node) Path() (string, error) {
+	if n.RootPath != "" {
+		return n.RootPath, nil
+	}
+	if n.parent == nil {
+		return "", fmt.Errorf("Node %d has no parent set", n.ID)
+	}
+	res, err := n.parent.Path()
+	return filepath.Join(res, n.Name), err
+}
+
 func MakeNode(parent *Node, name string) (*Node, error) {
 	if parent.ID == 0 {
 		panic("parent.ID has to be set")
