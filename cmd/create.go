@@ -1,4 +1,4 @@
-package core
+package cmd
 
 import (
 	"log"
@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/dav-m85/hashsnap/core"
 	bar "github.com/schollz/progressbar/v3"
 )
 
@@ -30,7 +31,7 @@ func (e exclusions) Has(name string) bool {
 	return false
 }
 
-func Create(target, outfile string, progress bool) error {
+func Create(target string, outfile core.Hsnap, progress bool) error {
 	excludes := exclusions{".git", ".DS_Store"}
 
 	var pbar *bar.ProgressBar
@@ -41,8 +42,8 @@ func Create(target, outfile string, progress bool) error {
 		)
 	}
 
-	nodes := make(chan *Node)
-	hashNodes := make(chan *Node)
+	nodes := make(chan *core.Node)
+	hashNodes := make(chan *core.Node)
 
 	go walker(nodes, target, excludes)
 
@@ -53,13 +54,12 @@ func Create(target, outfile string, progress bool) error {
 	}
 
 	done := make(chan uint64)
-	local := MakeHsnap(outfile)
-	go local.ChannelWrite(hashNodes, done)
+	go outfile.ChannelWrite(hashNodes, done)
 
 	wg.Wait()
 	close(hashNodes)
 	var count uint64 = <-done
-	log.Printf("Created snapshot %s with %d files\n", outfile, count)
+	log.Printf("Created snapshot with %d files\n", count)
 
 	return nil
 }
@@ -69,8 +69,8 @@ func Create(target, outfile string, progress bool) error {
 // not accessed anymore making it safe for user from another thread.
 // Once the walker has explored all files, it closes the emitting channel.
 // Each node receives a unique increment id, starting at 1 (0 being null)
-func walker(out chan<- *Node, path string, excludes exclusions) {
-	var q []*Node
+func walker(out chan<- *core.Node, path string, excludes exclusions) {
+	var q []*core.Node
 	var id uint64 = 1
 
 	if !filepath.IsAbs(path) {
@@ -79,7 +79,7 @@ func walker(out chan<- *Node, path string, excludes exclusions) {
 
 	// Appending the root to the processing queue, in order to bootstrap
 	// the BFS routine below.
-	root := MakeRootNode(path)
+	root := core.MakeRootNode(path)
 	root.ID = id
 	q = append(q, root)
 
@@ -91,9 +91,13 @@ func walker(out chan<- *Node, path string, excludes exclusions) {
 
 		// Walk deeper
 		if node.Mode.IsDir() {
-			names, err := readDirNames(node.path)
+			path, err := node.Path()
 			if err != nil {
-				log.Printf("Listing directory %s failed: %s", node.path, err)
+				log.Fatalf("A node has no path in create: %s", err)
+			}
+			names, err := readDirNames(path)
+			if err != nil {
+				log.Printf("Listing directory %s failed: %s", path, err)
 				continue
 			}
 			for _, name := range names {
@@ -101,7 +105,7 @@ func walker(out chan<- *Node, path string, excludes exclusions) {
 					continue
 				}
 
-				child, err := MakeNode(node, name)
+				child, err := core.MakeNode(node, name)
 				if err != nil {
 					log.Printf("Node creation failed: %s", err)
 				}
@@ -140,7 +144,7 @@ func readDirNames(dirname string) ([]string, error) {
 	return names, nil
 }
 
-func hasher(in <-chan *Node, out chan<- *Node, wg *sync.WaitGroup, pbar *bar.ProgressBar) {
+func hasher(in <-chan *core.Node, out chan<- *core.Node, wg *sync.WaitGroup, pbar *bar.ProgressBar) {
 	defer wg.Done()
 	for node := range in {
 		if !node.Mode.IsDir() {

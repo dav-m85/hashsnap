@@ -1,14 +1,14 @@
-package core
+package cmd
 
 import (
 	"fmt"
 	"log"
+
+	"github.com/dav-m85/hashsnap/core"
 )
 
-func List(target string) {
-	local := MakeHsnap(target)
-
-	nodes := make(chan *Node)
+func List(local core.Hsnap) {
+	nodes := make(chan *core.Node)
 	go local.ChannelRead(nodes)
 
 	var count uint64 = 0
@@ -19,5 +19,5 @@ func List(target string) {
 		fmt.Printf("%s\n", n)
 		count++
 	}
-	log.Printf("Listed snapshot %s with %d files\n", target, count)
+	log.Printf("Listed %d files\n", count)
 }

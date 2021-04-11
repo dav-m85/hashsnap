@@ -12,6 +12,14 @@ type Group struct {
 	Size  uint64
 }
 
+func (g Group) String() string {
+	var s string
+	for _, n := range g.Nodes {
+		s = fmt.Sprintf("%s\t%s\n", s, n)
+	}
+	return s
+}
+
 // HashGroup helps comparing Hashes pretty quickly
 type HashGroup map[[sha1.Size]byte]*Group
 
@@ -32,51 +40,35 @@ func (h *HashGroup) Dedup() {
 	fmt.Printf("Found %d duplicated groups, totalling %d bytes", dupGroup, dupSize)
 }
 
-// DedupWith reports duplicates belonging both to a Snapshot and a given HashGroup
-// func (sn *Snapshot) DedupWith(hb *HashGroup) {
-// 	for _, f := range sn.Files {
-// 		match, ok := (*hb)[f.Hash]
-// 		if ok {
-// 			if match.Size != f.Size {
-// 				panic("Collision, same hash but different size")
-// 			}
-// 			// matching group found; add this file to existing group
-// 			fmt.Printf("Duplicates:\n\t%s\n\t%s\n", f, match.Files[0])
-// 		}
-// 	}
-// }
+func (hg *HashGroup) Contains(n *Node) (*Group, bool) {
+	g, ok := (*hg)[n.Hash]
+	return g, ok
+}
 
-func Dedup(target string, withs []string) {
-	local := MakeHsnap(target)
-
+// Load ignores Dirs
+func (hg *HashGroup) Load(snap Hsnap) uint64 {
 	nodes := make(chan *Node)
-	go local.ChannelRead(nodes)
-	// var count uint64 = 0
-
-	matches := make(HashGroup)
-
+	var i uint64
+	go snap.ChannelRead(nodes)
 	for n := range nodes {
-		if n.RootPath != "" {
-			fmt.Printf("Snapshot captured in %s\n", n.RootPath)
-		}
-
 		if n.Mode.IsDir() {
 			continue
 		}
 
-		match, ok := matches[n.Hash]
+		match, ok := (*hg)[n.Hash]
 		if ok {
 			if match.Size != n.Size {
-				log.Println("Collision, same hash but different size")
-				continue
+				log.Fatalln("Collision, same hash but different size")
 			}
 			// matching group found; add this file to existing group
 			match.Nodes = append(match.Nodes, n)
 		} else {
 			// create new group in map
-			matches[n.Hash] = &Group{[]*Node{n}, n.Size}
+			(*hg)[n.Hash] = &Group{[]*Node{n}, n.Size}
 		}
+
+		i++
 	}
 
-	matches.Dedup()
+	return i
 }

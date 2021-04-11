@@ -6,20 +6,57 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 )
 
-// Hsnap is a file holding a filetree snapshot
-type Hsnap struct {
+var _ Hsnap = &HsnapFile{}
+var _ Hsnap = &HsnapMem{}
+
+type Hsnap interface {
+	ChannelRead(chan<- *Node)
+	ChannelWrite(<-chan *Node, chan uint64)
+}
+
+// HsnapMem in memory filetree snapshot, useful for testing
+type HsnapMem struct {
+	Nodes []*Node
+}
+
+func (h *HsnapMem) ChannelRead(out chan<- *Node) {
+	for _, n := range h.Nodes {
+		out <- n
+	}
+	close(out)
+}
+
+func (h *HsnapMem) ChannelWrite(<-chan *Node, chan uint64) {
+	panic("Not implemented")
+}
+
+// HsnapFile is a file holding a filetree snapshot
+type HsnapFile struct {
 	path string
 }
 
-func MakeHsnap(path string) *Hsnap {
-	return &Hsnap{path}
+func MakeHsnapFile(path string) *HsnapFile {
+	if !strings.HasSuffix(path, ".hsnap") {
+		log.Fatal("Snapshot file name should end with .hsnap")
+	}
+	return &HsnapFile{path}
+}
+
+func Read(snap Hsnap) (all []*Node) {
+	nodes := make(chan *Node)
+	go snap.ChannelRead(nodes)
+	for n := range nodes {
+		all = append(all, n)
+	}
+	return
 }
 
 // ChannelRead decodes a hsnap file into a stream of *Node. It closes the receiving
 // channel when file has been completely read. Call it within a goroutine.
-func (h *Hsnap) ChannelRead(out chan<- *Node) {
+func (h *HsnapFile) ChannelRead(out chan<- *Node) {
 	f, err := os.Open(h.path)
 	if err != nil {
 		panic(err)
@@ -58,7 +95,7 @@ func (h *Hsnap) ChannelRead(out chan<- *Node) {
 
 // ChannelWrite encodes a hsnap file given a stream of *Node. Signal end of processing
 // by sending on the done channel the number of written Node.
-func (h *Hsnap) ChannelWrite(in <-chan *Node, done chan uint64) {
+func (h *HsnapFile) ChannelWrite(in <-chan *Node, done chan uint64) {
 	f, err := os.Create(h.path)
 	if err != nil {
 		panic(err)

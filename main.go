@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 
+	"github.com/dav-m85/hashsnap/cmd"
 	"github.com/dav-m85/hashsnap/core"
 	"github.com/integrii/flaggy"
 )
@@ -31,6 +31,12 @@ func main() {
 	listCmd.AddPositionalValue(&snapshot, "file", 1, true, "Input file")
 	listCmd.Description = "List content of a snapshot file"
 
+	// info
+	infoCmd := flaggy.NewSubcommand("info")
+	flaggy.AttachSubcommand(infoCmd, 1)
+	infoCmd.AddPositionalValue(&snapshot, "file", 1, true, "Input file")
+	infoCmd.Description = "Information about a snapshot file"
+
 	// dedup
 	dedupCmd := flaggy.NewSubcommand("dedup")
 	flaggy.AttachSubcommand(dedupCmd, 1)
@@ -42,12 +48,10 @@ func main() {
 	flaggy.Parse()
 
 	// Main subcommand handling switch
+	local := core.MakeHsnapFile(snapshot)
+
 	switch {
 	case createCmd.Used:
-		if !strings.HasSuffix(snapshot, ".hsnap") {
-			log.Fatal("Snapshot file name should end with .hsnap")
-		}
-
 		var err error
 		if root == "" {
 			root, err = os.Getwd()
@@ -56,15 +60,22 @@ func main() {
 			}
 		}
 
-		if err := core.Create(root, snapshot, progress); err != nil {
+		if err := cmd.Create(root, local, progress); err != nil {
 			log.Fatal("Cannot create:", err)
 		}
 
 	case listCmd.Used:
-		core.List(snapshot)
+		cmd.List(local)
+
+	case infoCmd.Used:
+		cmd.Info(local)
 
 	case dedupCmd.Used:
-		core.Dedup(snapshot, withs)
+		var withSnaps []core.Hsnap
+		for _, w := range withs {
+			withSnaps = append(withSnaps, core.MakeHsnapFile(w))
+		}
+		cmd.DedupWith(local, withSnaps)
 	// 	snap := core.MustReadSnapshotFrom(local)
 
 	// 	if len(withs) == 0 {

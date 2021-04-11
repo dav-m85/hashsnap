@@ -43,6 +43,9 @@ func (n Node) String() string {
 
 // Path retrieve the absolute path of current Node by walking the parent tree
 func (n Node) Path() (string, error) {
+	if n.path != "" {
+		return n.path, nil
+	}
 	if n.RootPath != "" {
 		return n.RootPath, nil
 	}
