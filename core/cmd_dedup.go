@@ -8,7 +8,7 @@ import (
 
 // Group aka duplicates
 type Group struct {
-	Nodes []*Node
+	Nodes []*Node // Localnodes
 	Size  uint64
 }
 
@@ -46,10 +46,11 @@ func (h *HashGroup) Dedup() {
 // 	}
 // }
 
-func Dedup(target string) {
-	nodes := make(chan *Node)
+func Dedup(target string, withs []string) {
+	local := MakeHsnap(target)
 
-	go reader(target, nodes)
+	nodes := make(chan *Node)
+	go local.ChannelRead(nodes)
 	// var count uint64 = 0
 
 	matches := make(HashGroup)

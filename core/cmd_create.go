@@ -1,10 +1,6 @@
 package core
 
 import (
-	"bufio"
-	"encoding/gob"
-	"fmt"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -14,19 +10,24 @@ import (
 	bar "github.com/schollz/progressbar/v3"
 )
 
-func List(target string) {
-	nodes := make(chan *Node)
+type exclusions []string
 
-	go reader(target, nodes)
-	var count uint64 = 0
-	for n := range nodes {
-		if n.RootPath != "" {
-			fmt.Printf("Snapshot captured in %s\n", n.RootPath)
+// func makeExclusions(in []string) exclusions {
+// 	var e exclusions
+// 	copy(e, in)
+// 	sort.Strings(e)
+// 	return e
+// }
+
+func (e exclusions) Has(name string) bool {
+	// i := sort.SearchStrings(e, name)
+	// return i < len(e) && e[i] == name
+	for _, x := range e {
+		if x == name {
+			return true
 		}
-		fmt.Printf("%s\n", n)
-		count++
 	}
-	log.Printf("Listed snapshot %s with %d files\n", target, count)
+	return false
 }
 
 func Create(target, outfile string, progress bool) error {
@@ -52,7 +53,8 @@ func Create(target, outfile string, progress bool) error {
 	}
 
 	done := make(chan uint64)
-	go writer(hashNodes, outfile, done)
+	local := MakeHsnap(outfile)
+	go local.ChannelWrite(hashNodes, done)
 
 	wg.Wait()
 	close(hashNodes)
@@ -123,15 +125,6 @@ func walker(out chan<- *Node, path string, excludes exclusions) {
 	close(out)
 }
 
-func stringInSlice(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
-}
-
 // readDirNames reads the directory named by dirname and returns
 // a list of directory entries.
 func readDirNames(dirname string) ([]string, error) {
@@ -159,62 +152,4 @@ func hasher(in <-chan *Node, out chan<- *Node, wg *sync.WaitGroup, pbar *bar.Pro
 		}
 		out <- node
 	}
-}
-
-func writer(in <-chan *Node, path string, done chan uint64) {
-	f, err := os.Create(path)
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
-
-	w := bufio.NewWriter(f)
-	enc := gob.NewEncoder(w)
-	var count uint64 = 0
-
-	for f := range in {
-		enc.Encode(f)
-		count++
-	}
-	w.Flush()
-
-	done <- count
-}
-
-// ReadSnapshotFrom decodes a snapshot file given its path
-func reader(path string, out chan<- *Node) {
-	f, err := os.Open(path)
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
-
-	nodes := make(map[uint64]*Node)
-
-	w := bufio.NewReader(f)
-	enc := gob.NewDecoder(w)
-	for {
-		var n *Node = &Node{}
-		err := enc.Decode(n)
-		if err != nil {
-			if err != io.EOF {
-				log.Printf("Decoder encountered an issue: %s\n", err)
-			}
-			break
-		}
-
-		// Lets fill parent
-		nodes[n.ID] = n
-		if n.ParentID != 0 {
-			parent, ok := nodes[n.ParentID]
-			if !ok {
-				log.Printf("Cannot solve parent")
-				continue
-			}
-			n.parent = parent
-		}
-
-		out <- n
-	}
-	close(out)
 }

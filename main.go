@@ -36,8 +36,8 @@ func main() {
 	flaggy.AttachSubcommand(dedupCmd, 1)
 	dedupCmd.AddPositionalValue(&snapshot, "file", 1, true, "Input file")
 
-	// var withs []string
-	// dedupCmd.StringSlice(&withs, "w", "with", "Hashsnap to dedup against")
+	var withs []string
+	dedupCmd.StringSlice(&withs, "w", "with", "Hashsnap to dedup against")
 
 	flaggy.Parse()
 
@@ -64,7 +64,7 @@ func main() {
 		core.List(snapshot)
 
 	case dedupCmd.Used:
-		core.Dedup(snapshot)
+		core.Dedup(snapshot, withs)
 	// 	snap := core.MustReadSnapshotFrom(local)
 
 	// 	if len(withs) == 0 {
