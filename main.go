@@ -76,14 +76,6 @@ func main() {
 			withSnaps = append(withSnaps, core.MakeHsnapFile(w))
 		}
 		cmd.DedupWith(local, withSnaps)
-	// 	snap := core.MustReadSnapshotFrom(local)
-
-	// 	if len(withs) == 0 {
-	// 		snap.Group().Dedup()
-	// 	} else {
-	// 		w := core.MustReadSnapshotFrom(withs[0])
-	// 		snap.DedupWith(w.Group())
-	// 	}
 
 	default:
 		fmt.Println("Use --help")

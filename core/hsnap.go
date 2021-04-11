@@ -3,6 +3,7 @@ package core
 import (
 	"bufio"
 	"encoding/gob"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -20,6 +21,14 @@ type Hsnap interface {
 // HsnapMem in memory filetree snapshot, useful for testing
 type HsnapMem struct {
 	Nodes []*Node
+}
+
+func (hs HsnapMem) String() string {
+	var s string
+	for _, n := range hs.Nodes {
+		s = fmt.Sprintf("%s\t%s\n", s, n)
+	}
+	return s
 }
 
 func (h *HsnapMem) ChannelRead(out chan<- *Node) {
