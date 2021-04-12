@@ -37,7 +37,7 @@ func (h *HashGroup) Dedup() {
 			fmt.Println(group.Nodes[0].Path())
 		}
 	}
-	fmt.Printf("Found %d duplicated groups, totalling %d bytes", dupGroup, dupSize)
+	fmt.Printf("Found %d duplicated groups, totalling %s", dupGroup, ByteSize(dupSize))
 }
 
 func (hg *HashGroup) Contains(n *Node) (*Group, bool) {

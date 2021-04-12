@@ -37,13 +37,17 @@ func main() {
 	infoCmd.AddPositionalValue(&snapshot, "file", 1, true, "Input file")
 	infoCmd.Description = "Information about a snapshot file"
 
+	// trim
+	trimCmd := flaggy.NewSubcommand("trim")
+	flaggy.AttachSubcommand(trimCmd, 1)
+	trimCmd.AddPositionalValue(&snapshot, "file", 1, true, "Input file")
+	var withs []string
+	trimCmd.StringSlice(&withs, "w", "with", "Hashsnap to dedup against")
+
 	// dedup
 	dedupCmd := flaggy.NewSubcommand("dedup")
 	flaggy.AttachSubcommand(dedupCmd, 1)
 	dedupCmd.AddPositionalValue(&snapshot, "file", 1, true, "Input file")
-
-	var withs []string
-	dedupCmd.StringSlice(&withs, "w", "with", "Hashsnap to dedup against")
 
 	flaggy.Parse()
 
@@ -71,11 +75,14 @@ func main() {
 		cmd.Info(local)
 
 	case dedupCmd.Used:
+		cmd.Dedup(local)
+
+	case trimCmd.Used:
 		var withSnaps []core.Hsnap
 		for _, w := range withs {
 			withSnaps = append(withSnaps, core.MakeHsnapFile(w))
 		}
-		cmd.DedupWith(local, withSnaps)
+		cmd.Trim(local, withSnaps)
 
 	default:
 		fmt.Println("Use --help")
