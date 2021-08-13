@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -8,8 +9,7 @@ import (
 )
 
 func List(local core.Hsnap) {
-	nodes := make(chan *core.Node)
-	go local.ChannelRead(nodes)
+	nodes, _, _ := local.ChannelRead()(context.Background())
 
 	var count uint64 = 0
 	for n := range nodes {

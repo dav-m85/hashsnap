@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"crypto/sha1"
 	"fmt"
 	"log"
@@ -46,29 +47,37 @@ func (hg *HashGroup) Contains(n *Node) (*Group, bool) {
 }
 
 // Load ignores Dirs
-func (hg *HashGroup) Load(snap Hsnap) uint64 {
-	nodes := make(chan *Node)
-	var i uint64
-	go snap.ChannelRead(nodes)
-	for n := range nodes {
-		if n.Mode.IsDir() {
-			continue
-		}
-
-		match, ok := (*hg)[n.Hash]
-		if ok {
-			if match.Size != n.Size {
-				log.Fatalln("Collision, same hash but different size")
-			}
-			// matching group found; add this file to existing group
-			match.Nodes = append(match.Nodes, n)
-		} else {
-			// create new group in map
-			(*hg)[n.Hash] = &Group{[]*Node{n}, n.Size}
-		}
-
-		i++
+func (hg *HashGroup) Load(snap Hsnap) error {
+	// var i uint64
+	nodes, errc, err := snap.ChannelRead()(context.Background())
+	if err != nil {
+		return err
 	}
+	for {
+		select {
+		case n, ok := <-nodes:
+			if !ok {
+				return nil
+			}
+			if n.Mode.IsDir() {
+				continue
+			}
 
-	return i
+			match, ok := (*hg)[n.Hash]
+			if ok {
+				if match.Size != n.Size {
+					log.Fatalln("Collision, same hash but different size")
+				}
+				// matching group found; add this file to existing group
+				match.Nodes = append(match.Nodes, n)
+			} else {
+				// create new group in map
+				(*hg)[n.Hash] = &Group{[]*Node{n}, n.Size}
+			}
+
+			// i++
+		case err := <-errc:
+			return err
+		}
+	}
 }
