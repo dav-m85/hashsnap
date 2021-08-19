@@ -16,7 +16,7 @@ func Trim(local core.Hsnap, withs []core.Hsnap) {
 	var count uint64
 
 	for _, n := range core.Read(local) {
-		if g, ok := matches.Contains(n); ok {
+		if g, ok := matches[n.Hash]; ok {
 			fmt.Printf("DUP %s:\n%s\n", n, g)
 			size = size + n.Size
 			count++

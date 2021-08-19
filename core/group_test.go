@@ -72,14 +72,14 @@ func TestAbs(t *testing.T) {
 	h.Load(a)
 
 	// This one is their
-	_, ok := h.Contains(n("z", "aze")[0])
+	_, ok := h[n("z", "aze")[0].Hash]
 	is.True(ok)
 
 	// This one not
-	_, ok = h.Contains(n("z", "foe")[0])
+	_, ok = h[n("z", "foe")[0].Hash]
 	is.True(!ok)
 
 	// This one is a dir
-	_, ok = h.Contains(n("/", "", n("z", "foe"))[0])
+	_, ok = h[n("/", "", n("z", "foe"))[0].Hash]
 	is.True(!ok)
 }
