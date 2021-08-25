@@ -25,25 +25,22 @@ func Create(target string, outfile core.Hsnap, progress bool) error {
 	var errcList []<-chan error
 
 	// ⛲️ Source by exploring all files
-	nodes, errc, err := core.WalkFileTree(target, excludes)(ctx)
+	nodes, err := core.WalkFS(ctx, target, excludes)
 	if err != nil {
 		panic(err)
 	}
-	errcList = append(errcList, errc)
 
 	// 🏭 Hash them all
-	nodes2, errc, err := core.Hasher(pbar)(ctx, nodes)
+	nodes2, err := core.Hasher(ctx, pbar, nodes)
 	if err != nil {
 		panic(err)
 	}
-	errcList = append(errcList, errc)
 
 	// 🛁 Write hashes to hashfile
-	errc, err = outfile.ChannelWrite()(ctx, nodes2)
+	err = outfile.ChannelWrite(nodes2)
 	if err != nil {
 		panic(err)
 	}
-	errcList = append(errcList, errc)
 
 	log.Printf("Pipeline started, processing...")
 	err = core.WaitForPipeline(errcList...)

@@ -76,7 +76,7 @@ func (h HashGroup) Dedup() {
 // Load ignores Dirs
 func (hg HashGroup) Load(snap Hsnap) error {
 	// var i uint64
-	nodes, errc, err := snap.ChannelRead()(context.Background())
+	nodes, err := snap.ChannelRead(context.Background())
 	if err != nil {
 		return err
 	}
@@ -105,10 +105,6 @@ func (hg HashGroup) Load(snap Hsnap) error {
 				// create new group in map
 				hg[n.Hash] = &Group{[]*Node{n}, n.Size}
 			}
-
-			// i++
-		case err := <-errc:
-			return err
 		}
 	}
 }

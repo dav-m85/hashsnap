@@ -9,7 +9,7 @@ import (
 )
 
 func List(local core.Hsnap) {
-	nodes, _, _ := local.ChannelRead()(context.Background())
+	nodes, _ := local.ChannelRead(context.Background())
 
 	var count uint64 = 0
 	for n := range nodes {

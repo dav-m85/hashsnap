@@ -95,6 +95,7 @@ func MakeRootNode(path string) *Node {
 }
 
 // ComputeHash reads the file and computes the sha1 of it
+// TODO not a Node role !
 func (n *Node) ComputeHash(pbar *bar.ProgressBar) error {
 	fd, err := os.Open(n.path)
 	if err != nil {

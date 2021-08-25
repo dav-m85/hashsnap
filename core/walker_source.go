@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -32,74 +33,70 @@ func (e Exclusions) Has(name string) bool {
 // not accessed anymore making it safe for user from another thread.
 // Once the walker has explored all files, it closes the emitting channel.
 // Each node receives a unique increment id, starting at 1 (0 being null)
-func WalkFileTree(path string, excludes Exclusions) Sourcer {
-	return func(ctx context.Context) (<-chan *Node, <-chan error, error) {
-		var q []*Node
-		var id uint64 = 1
+// func () Sourcer {
+func WalkFS(ctx context.Context, path string, excludes Exclusions) (<-chan *Node, error) {
+	if !filepath.IsAbs(path) {
+		return nil, fmt.Errorf("Path should be absolute: %s", path)
+	}
 
-		if !filepath.IsAbs(path) {
-			log.Fatalf("Path should be absolute: %s", path)
-		}
+	var q []*Node
+	var id uint64 = 1
+	out := make(chan *Node)
 
-		out := make(chan *Node)
-		errc := make(chan error, 1)
+	go func() {
+		defer close(out)
 
-		go func() {
-			defer close(out)
-			defer close(errc)
+		// Appending the root to the processing queue, in order to bootstrap
+		// the BFS routine below.
+		root := MakeRootNode(path)
+		root.ID = id
+		q = append(q, root)
 
-			// Appending the root to the processing queue, in order to bootstrap
-			// the BFS routine below.
-			root := MakeRootNode(path)
-			root.ID = id
-			q = append(q, root)
+		// Actual BFS
+		for len(q) > 0 {
+			// Shift first node
+			node := q[0]
+			q = q[1:]
 
-			// Actual BFS
-			for len(q) > 0 {
-				// Shift first node
-				node := q[0]
-				q = q[1:]
-
-				// Walk deeper
-				if node.Mode.IsDir() {
-					path, err := node.Path()
-					if err != nil {
-						log.Fatalf("A node has no path in create: %s", err)
-					}
-					names, err := readDirNames(path)
-					if err != nil {
-						log.Printf("Listing directory %s failed: %s", path, err)
+			// Walk deeper
+			if node.Mode.IsDir() {
+				path, err := node.Path()
+				if err != nil {
+					log.Fatalf("A node has no path in create: %s", err)
+				}
+				names, err := readDirNames(path)
+				if err != nil {
+					log.Printf("Listing directory %s failed: %s", path, err)
+					continue
+				}
+				for _, name := range names {
+					if excludes.Has(name) {
 						continue
 					}
-					for _, name := range names {
-						if excludes.Has(name) {
-							continue
-						}
 
-						child, err := MakeNode(node, name)
-						if err != nil {
-							log.Printf("Node creation failed: %s", err)
-						}
-						// Ignore symlinks and zero-size files
-						if !child.Mode.IsDir() && (!child.Mode.IsRegular() || child.Size == 0) {
-							continue
-						}
-
-						// This file is legit, let's assign it an ID
-						id++
-						child.ID = id
-
-						q = append(q, child)
+					child, err := MakeNode(node, name)
+					if err != nil {
+						log.Printf("Node creation failed: %s", err)
 					}
+					// Ignore symlinks and zero-size files
+					if !child.Mode.IsDir() && (!child.Mode.IsRegular() || child.Size == 0) {
+						continue
+					}
+
+					// This file is legit, let's assign it an ID
+					id++
+					child.ID = id
+
+					q = append(q, child)
 				}
-
-				// Send current node downstream, we won't touch it anymore
-				out <- node
 			}
-		}()
 
-		return out, errc, nil
-	}
+			// Send current node downstream, we won't touch it anymore
+			out <- node
+		}
+	}()
+
+	return out, nil
 }
 
 // readDirNames reads the directory named by dirname and returns
