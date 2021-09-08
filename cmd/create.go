@@ -9,7 +9,7 @@ import (
 )
 
 func Create(target string, outfile core.Hsnap, progress bool) error {
-	excludes := core.Exclusions{".git", ".DS_Store"}
+	// excludes := core.Exclusions{".git", ".DS_Store"}
 
 	var pbar *bar.ProgressBar
 	if progress {
@@ -22,19 +22,14 @@ func Create(target string, outfile core.Hsnap, progress bool) error {
 	// Pipeline context... cancelling it cancels them all
 	ctx, cleanup := context.WithCancel(context.Background())
 
-	var errcList []<-chan error
-
 	// ⛲️ Source by exploring all files
-	nodes, err := core.WalkFS(ctx, target, excludes)
+	nodes, err := core.WalkFS(ctx, target, nil)
 	if err != nil {
 		panic(err)
 	}
 
 	// 🏭 Hash them all
-	nodes2, err := core.Hasher(ctx, pbar, nodes)
-	if err != nil {
-		panic(err)
-	}
+	nodes2 := core.Hasher(ctx, pbar, nodes)
 
 	// 🛁 Write hashes to hashfile
 	err = outfile.ChannelWrite(nodes2)
@@ -42,11 +37,6 @@ func Create(target string, outfile core.Hsnap, progress bool) error {
 		panic(err)
 	}
 
-	log.Printf("Pipeline started, processing...")
-	err = core.WaitForPipeline(errcList...)
-	if err != nil {
-		panic(err)
-	}
 	cleanup()
 
 	log.Printf("Pipeline done!")

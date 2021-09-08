@@ -8,33 +8,36 @@ import (
 	"path/filepath"
 )
 
-type Exclusions []string
+// Skipper indicate a Node should be skipped by returning true
+type Skipper func(*Node) bool
 
-// func makeExclusions(in []string) exclusions {
-// 	var e exclusions
-// 	copy(e, in)
-// 	sort.Strings(e)
-// 	return e
-// }
-
-func (e Exclusions) Has(name string) bool {
-	// i := sort.SearchStrings(e, name)
-	// return i < len(e) && e[i] == name
-	for _, x := range e {
-		if x == name {
-			return true
-		}
-	}
-	return false
+// DefaultSkipper ignores symlinks and zero-size files
+var DefaultSkipper = func(n *Node) bool {
+	return !n.Mode.IsDir() && (!n.Mode.IsRegular() || n.Size == 0)
 }
 
-// WalkFileTree walks a filetree in a breadth first manner
+// MakeNameSkipper extends DefaultSkipper to ignore some names
+func MakeNameSkipper(names []string) Skipper {
+	return func(n *Node) bool {
+		for _, x := range names {
+			if x == n.Name {
+				return true
+			}
+		}
+		return DefaultSkipper(n)
+	}
+}
+
+// WalkFS walks a filetree in a breadth first manner
 // It generates a stream of *Nodes to be used. Once a Node has been sent, it is
 // not accessed anymore making it safe for user from another thread.
 // Once the walker has explored all files, it closes the emitting channel.
 // Each node receives a unique increment id, starting at 1 (0 being null)
-// func () Sourcer {
-func WalkFS(ctx context.Context, path string, excludes Exclusions) (<-chan *Node, error) {
+func WalkFS(ctx context.Context, path string, skip Skipper) (<-chan *Node, error) {
+	if skip != nil {
+		skip = DefaultSkipper
+	}
+
 	if !filepath.IsAbs(path) {
 		return nil, fmt.Errorf("Path should be absolute: %s", path)
 	}
@@ -70,16 +73,12 @@ func WalkFS(ctx context.Context, path string, excludes Exclusions) (<-chan *Node
 					continue
 				}
 				for _, name := range names {
-					if excludes.Has(name) {
-						continue
-					}
-
-					child, err := MakeNode(node, name)
+					child, err := MakeChildNode(node, name)
 					if err != nil {
 						log.Printf("Node creation failed: %s", err)
 					}
-					// Ignore symlinks and zero-size files
-					if !child.Mode.IsDir() && (!child.Mode.IsRegular() || child.Size == 0) {
+
+					if skip(child) {
 						continue
 					}
 

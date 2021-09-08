@@ -3,13 +3,10 @@ package core
 import (
 	"crypto/sha1"
 	"fmt"
-	"io"
 	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
-
-	bar "github.com/schollz/progressbar/v3"
 )
 
 // lstat is a proxy for os.Lstat
@@ -56,7 +53,7 @@ func (n Node) Path() (string, error) {
 	return filepath.Join(res, n.Name), err
 }
 
-func MakeNode(parent *Node, name string) (*Node, error) {
+func MakeChildNode(parent *Node, name string) (*Node, error) {
 	if parent.ID == 0 {
 		panic("parent.ID has to be set")
 	}
@@ -77,6 +74,10 @@ func MakeNode(parent *Node, name string) (*Node, error) {
 	}, nil
 }
 
+// func MakeNode(path string) (*Node, error) {
+
+// }
+
 func MakeRootNode(path string) *Node {
 	info, err := lstat(path)
 	if err != nil {
@@ -92,27 +93,4 @@ func MakeRootNode(path string) *Node {
 		depth:    0,
 		RootPath: path,
 	}
-}
-
-// ComputeHash reads the file and computes the sha1 of it
-// TODO not a Node role !
-func (n *Node) ComputeHash(pbar *bar.ProgressBar) error {
-	fd, err := os.Open(n.path)
-	if err != nil {
-		return err
-	}
-	h := sha1.New()
-	defer fd.Close()
-
-	var writeTo io.Writer = h
-	if pbar != nil {
-		writeTo = io.MultiWriter(h, pbar)
-	}
-	if _, err = io.Copy(writeTo, fd); err != nil {
-		return err
-	}
-
-	copy(n.Hash[:], h.Sum(nil)) // [sha1.Size]byte()
-
-	return nil
 }

@@ -2,14 +2,17 @@ package core
 
 import (
 	"context"
+	"crypto/sha1"
+	"io"
 	"log"
+	"os"
 	"runtime"
 	"sync"
 
 	bar "github.com/schollz/progressbar/v3"
 )
 
-func Hasher(ctx context.Context, pbar *bar.ProgressBar, in <-chan *Node) (<-chan *Node, error) {
+func Hasher(ctx context.Context, pbar *bar.ProgressBar, in <-chan *Node) <-chan *Node {
 	out := make(chan *Node)
 	go func() {
 		defer close(out)
@@ -22,7 +25,7 @@ func Hasher(ctx context.Context, pbar *bar.ProgressBar, in <-chan *Node) (<-chan
 
 				for node := range in {
 					if !node.Mode.IsDir() {
-						err := node.ComputeHash(pbar)
+						err := computeHash(node, pbar)
 						if err != nil {
 							log.Printf("Cannot hash %s: %s", node, err)
 							continue
@@ -38,5 +41,27 @@ func Hasher(ctx context.Context, pbar *bar.ProgressBar, in <-chan *Node) (<-chan
 		}
 		wg.Wait()
 	}()
-	return out, nil
+	return out
+}
+
+// computeHash reads the file and computes the sha1 of it
+func computeHash(n *Node, pbar *bar.ProgressBar) error {
+	fd, err := os.Open(n.path)
+	if err != nil {
+		return err
+	}
+	h := sha1.New()
+	defer fd.Close()
+
+	var writeTo io.Writer = h
+	if pbar != nil {
+		writeTo = io.MultiWriter(h, pbar)
+	}
+	if _, err = io.Copy(writeTo, fd); err != nil {
+		return err
+	}
+
+	copy(n.Hash[:], h.Sum(nil)) // [sha1.Size]byte()
+
+	return nil
 }

@@ -9,10 +9,10 @@ const (
 	GB = 1024 * MB
 )
 
-// ByteSize represents a byte quantity into a human readable format
+// ByteSize represents a byte quantity
 type ByteSize uint64
 
-// String returns a human readable string
+// String gives a human readable string
 // Based on https://yourbasic.org/golang/formatting-byte-size-to-human-readable-format/
 func (b ByteSize) String() string {
 	const unit = 1024

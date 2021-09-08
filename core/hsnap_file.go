@@ -12,44 +12,15 @@ import (
 )
 
 var _ Hsnap = &HsnapFile{}
-var _ Hsnap = &HsnapMem{}
-
-type Hsnap interface {
-	ChannelRead(context.Context) (<-chan *Node, error)
-	ChannelWrite(<-chan *Node) error
-}
-
-// HsnapMem in memory filetree snapshot, useful for testing
-type HsnapMem struct {
-	Nodes []*Node
-}
-
-func (hs HsnapMem) String() string {
-	var s string
-	for _, n := range hs.Nodes {
-		s = fmt.Sprintf("%s\t%s\n", s, n)
-	}
-	return s
-}
-
-func (h *HsnapMem) ChannelRead(context.Context) (<-chan *Node, error) {
-	out := make(chan *Node)
-	go func() {
-		defer close(out)
-		for _, n := range h.Nodes {
-			out <- n
-		}
-	}()
-	return out, nil
-}
-
-func (h *HsnapMem) ChannelWrite(<-chan *Node) error {
-	return nil
-}
 
 // HsnapFile is a file holding a filetree snapshot
 type HsnapFile struct {
 	path string
+}
+
+type header struct {
+	Version  int
+	RootPath string
 }
 
 func MakeHsnapFile(path string) *HsnapFile {
@@ -59,19 +30,9 @@ func MakeHsnapFile(path string) *HsnapFile {
 	return &HsnapFile{path}
 }
 
-func Read(snap Hsnap) (all []*Node) {
-	ctx := context.Background()
-	out, _ := snap.ChannelRead(ctx)
-	for n := range out {
-		all = append(all, n)
-	}
-	return
-}
-
 // TODO ChannelRead and ChannelWrite could be detyped
 
-// ChannelRead decodes a hsnap file into a stream of *Node. It closes the receiving
-// channel when file has been completely read. Call it within a goroutine.
+// ChannelRead decodes a hsnap file into a stream of *Node.
 func (h *HsnapFile) ChannelRead(ctx context.Context) (<-chan *Node, error) {
 	f, err := os.Open(h.path)
 	if err != nil {
@@ -87,6 +48,15 @@ func (h *HsnapFile) ChannelRead(ctx context.Context) (<-chan *Node, error) {
 
 		w := bufio.NewReader(f)
 		enc := gob.NewDecoder(w)
+
+		var h *header = &header{}
+		err := enc.Decode(h)
+		if err != nil {
+			fmt.Printf("Old archive found: %s\n", err)
+		} else {
+			fmt.Printf("%#v\n", h)
+		}
+
 		for {
 			var n *Node = &Node{}
 			err := enc.Decode(n)
@@ -126,7 +96,7 @@ func (h *HsnapFile) ChannelRead(ctx context.Context) (<-chan *Node, error) {
 func (h *HsnapFile) ChannelWrite(in <-chan *Node) error {
 	f, err := os.Create(h.path)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	w := bufio.NewWriter(f)
@@ -135,6 +105,11 @@ func (h *HsnapFile) ChannelWrite(in <-chan *Node) error {
 	defer w.Flush()
 
 	enc := gob.NewEncoder(w)
+
+	enc.Encode(header{
+		Version:  1,
+		RootPath: h.path,
+	})
 
 	for f := range in {
 		enc.Encode(f)
