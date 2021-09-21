@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"log"
 
 	"github.com/dav-m85/hashsnap/core"
 	bar "github.com/schollz/progressbar/v3"
@@ -38,10 +37,6 @@ func Create(target string, outfile core.Hsnap, progress bool) error {
 	}
 
 	cleanup()
-
-	log.Printf("Pipeline done!")
-
-	// log.Printf("Created snapshot with %d files\n", count)
 
 	return nil
 }

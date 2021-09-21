@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/dav-m85/hashsnap/core"
@@ -10,7 +11,11 @@ func Info(local core.Hsnap) {
 	var size uint64
 	var count uint64
 
-	for _, n := range core.Read(local) {
+	stream, err := local.ChannelRead(context.Background())
+	if err != nil {
+		panic(err)
+	}
+	for n := range stream {
 		if n.RootPath != "" {
 			fmt.Printf("Snapshot captured in %s\n", n.RootPath)
 		}

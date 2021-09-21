@@ -18,11 +18,6 @@ type HsnapFile struct {
 	path string
 }
 
-type header struct {
-	Version  int
-	RootPath string
-}
-
 func MakeHsnapFile(path string) *HsnapFile {
 	if !strings.HasSuffix(path, ".hsnap") {
 		log.Fatal("Snapshot file name should end with .hsnap")
@@ -31,6 +26,40 @@ func MakeHsnapFile(path string) *HsnapFile {
 }
 
 // TODO ChannelRead and ChannelWrite could be detyped
+
+func (h *HsnapFile) Info() Info {
+	f, err := os.Open(h.path)
+	if err != nil {
+		panic(err)
+	}
+
+	w := bufio.NewReader(f)
+	enc := gob.NewDecoder(w)
+
+	var info *Info = &Info{}
+	if err := enc.Decode(info); err != nil {
+		panic(err)
+	}
+	if info.Version > 0 {
+		return *info
+	}
+
+	// Old archive format support
+	f.Seek(0, 0)
+	w.Reset(f)
+	enc = gob.NewDecoder(w)
+
+	var n *Node = &Node{}
+
+	if err := enc.Decode(n); err != nil {
+		panic(err)
+	}
+
+	return Info{
+		RootPath: n.RootPath,
+		Version:  0,
+	}
+}
 
 // ChannelRead decodes a hsnap file into a stream of *Node.
 func (h *HsnapFile) ChannelRead(ctx context.Context) (<-chan *Node, error) {
@@ -51,8 +80,11 @@ func (h *HsnapFile) ChannelRead(ctx context.Context) (<-chan *Node, error) {
 
 		var h *header = &header{}
 		err := enc.Decode(h)
-		if err != nil {
+		if err != nil || h.Version == 0 {
 			fmt.Printf("Old archive found: %s\n", err)
+			f.Seek(0, 0)
+			w.Reset(f)
+			enc = gob.NewDecoder(w)
 		} else {
 			fmt.Printf("%#v\n", h)
 		}

@@ -78,7 +78,7 @@ func WalkFS(ctx context.Context, path string, skip Skipper) (<-chan *Node, error
 						log.Printf("Node creation failed: %s", err)
 					}
 
-					if skip(child) {
+					if skip != nil && skip(child) {
 						continue
 					}
 
