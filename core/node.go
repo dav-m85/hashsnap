@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 )
 
-// lstat is a proxy for os.Lstat
 var lstat = os.Lstat
 
 // Node is an entry in the filetree. Either file or directory. A .hsnap file is
@@ -24,14 +23,14 @@ type Node struct {
 	Size uint64
 	Hash [sha1.Size]byte // hash.Hash // sha1.New()
 
+	parent   *Node
+	children []*Node
+
 	// Parent node
+	// Move to specialized encoder :)
 	ParentID uint64
-	parent   *Node  // Unexported, we do not want this in the .hsnap file
 	path     string // full absolute path with Name
 	depth    uint64
-
-	// Root only has this, replaced by Info in subsequent versions
-	RootPath string
 }
 
 func (n Node) String() string {
@@ -43,9 +42,9 @@ func (n Node) Path() (string, error) {
 	if n.path != "" {
 		return n.path, nil
 	}
-	if n.RootPath != "" {
-		return n.RootPath, nil
-	}
+	// if n.RootPath != "" {
+	// 	return n.RootPath, nil
+	// }
 	if n.parent == nil {
 		return "", fmt.Errorf("Node %d has no parent set", n.ID)
 	}
@@ -91,6 +90,6 @@ func MakeRootNode(path string) *Node {
 		ParentID: 0, // Trivial, root Node has no parent
 		path:     path,
 		depth:    0,
-		RootPath: path,
+		// RootPath: path,
 	}
 }

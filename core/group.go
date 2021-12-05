@@ -74,9 +74,9 @@ func (h HashGroup) Dedup() {
 }
 
 // Load ignores Dirs
-func (hg HashGroup) Load(snap Hsnap) error {
+func (hg HashGroup) Load(snap Noder) error {
 	// var i uint64
-	nodes, err := snap.ChannelRead(context.Background())
+	nodes, err := snap.Read(context.Background())
 	if err != nil {
 		return err
 	}

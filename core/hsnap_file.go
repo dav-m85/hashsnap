@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-var _ Hsnap = &HsnapFile{}
+var _ Noder = &HsnapFile{}
 
 // HsnapFile is a file holding a filetree snapshot
 type HsnapFile struct {
@@ -56,13 +56,13 @@ func (h *HsnapFile) Info() Info {
 	}
 
 	return Info{
-		RootPath: n.RootPath,
-		Version:  0,
+		// RootPath: n.RootPath,
+		Version: 0,
 	}
 }
 
 // ChannelRead decodes a hsnap file into a stream of *Node.
-func (h *HsnapFile) ChannelRead(ctx context.Context) (<-chan *Node, error) {
+func (h *HsnapFile) Read(ctx context.Context) (<-chan *Node, error) {
 	f, err := os.Open(h.path)
 	if err != nil {
 		panic(err)
@@ -122,7 +122,7 @@ func (h *HsnapFile) ChannelRead(ctx context.Context) (<-chan *Node, error) {
 }
 
 // ChannelWrite encodes a hsnap file given a stream of *Node.
-func (h *HsnapFile) ChannelWrite(in <-chan *Node) error {
+func (h *HsnapFile) Write(in <-chan *Node) error {
 	if _, err := os.Stat(h.path); err == nil {
 		return fmt.Errorf("%s already exists, aborting", h.path)
 	}

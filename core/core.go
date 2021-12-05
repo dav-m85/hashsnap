@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// Info header for a .hsnap file
 type Info struct {
 	RootPath  string
 	CreatedAt time.Time
@@ -12,15 +13,15 @@ type Info struct {
 }
 
 // TODO Rename to Noder
-type Hsnap interface {
+type Noder interface {
 	Info() Info
-	ChannelRead(context.Context) (<-chan *Node, error)
-	ChannelWrite(<-chan *Node) error
+	Read(context.Context) (<-chan *Node, error)
+	Write(<-chan *Node) error
 }
 
-func Read(snap Hsnap) (all []*Node) {
+func Read(snap Noder) (all []*Node) {
 	ctx := context.Background()
-	out, _ := snap.ChannelRead(ctx)
+	out, _ := snap.Read(ctx)
 	for n := range out {
 		all = append(all, n)
 	}

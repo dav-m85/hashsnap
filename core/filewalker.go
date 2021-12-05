@@ -29,12 +29,11 @@ func MakeNameSkipper(names []string) Skipper {
 }
 
 // WalkFS walks a filetree in a breadth first manner
-// It generates a stream of *Nodes to be used. Once a Node has been sent, it is
-// not accessed anymore making it safe for user from another thread.
+// It generates a stream of *Nodes to be used.
 // Once the walker has explored all files, it closes the emitting channel.
-// Each node receives a unique increment id, starting at 1 (0 being null)
+// Each node receives a unique increment id, starting at 1.
 func WalkFS(ctx context.Context, path string, skip Skipper) (<-chan *Node, error) {
-	if skip != nil {
+	if skip == nil {
 		skip = DefaultSkipper
 	}
 
@@ -42,11 +41,12 @@ func WalkFS(ctx context.Context, path string, skip Skipper) (<-chan *Node, error
 		return nil, fmt.Errorf("Path should be absolute: %s", path)
 	}
 
-	var q []*Node
-	var id uint64 = 1
 	out := make(chan *Node)
 
 	go func() {
+		var q []*Node
+		var id uint64 = 1
+
 		defer close(out)
 
 		// Appending the root to the processing queue, in order to bootstrap
@@ -90,7 +90,6 @@ func WalkFS(ctx context.Context, path string, skip Skipper) (<-chan *Node, error
 				}
 			}
 
-			// Send current node downstream, we won't touch it anymore
 			out <- node
 		}
 	}()

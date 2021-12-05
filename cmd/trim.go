@@ -6,7 +6,7 @@ import (
 	"github.com/dav-m85/hashsnap/core"
 )
 
-func Trim(local core.Hsnap, withs []core.Hsnap) {
+func Trim(local core.Noder, withs []core.Noder) {
 	matches := make(core.HashGroup)
 	for _, w := range withs {
 		matches.Load(w)

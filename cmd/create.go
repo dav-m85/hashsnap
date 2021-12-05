@@ -7,7 +7,7 @@ import (
 	bar "github.com/schollz/progressbar/v3"
 )
 
-func Create(target string, outfile core.Hsnap, progress bool) error {
+func Create(target string, outfile core.Noder, progress bool) error {
 	// excludes := core.Exclusions{".git", ".DS_Store"}
 
 	var pbar *bar.ProgressBar
@@ -31,7 +31,7 @@ func Create(target string, outfile core.Hsnap, progress bool) error {
 	nodes2 := core.Hasher(ctx, pbar, nodes)
 
 	// 🛁 Write hashes to hashfile
-	err = outfile.ChannelWrite(nodes2)
+	err = outfile.Write(nodes2)
 	if err != nil {
 		panic(err)
 	}

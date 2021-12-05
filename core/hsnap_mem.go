@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-var _ Hsnap = &HsnapMem{}
+var _ Noder = &HsnapMem{}
 
 // HsnapMem in memory filetree snapshot, useful for testing
 type HsnapMem struct {
@@ -20,7 +20,7 @@ func (hs HsnapMem) String() string {
 	return s
 }
 
-func (h *HsnapMem) ChannelRead(context.Context) (<-chan *Node, error) {
+func (h *HsnapMem) Read(context.Context) (<-chan *Node, error) {
 	out := make(chan *Node)
 	go func() {
 		defer close(out)
@@ -31,7 +31,7 @@ func (h *HsnapMem) ChannelRead(context.Context) (<-chan *Node, error) {
 	return out, nil
 }
 
-func (h *HsnapMem) ChannelWrite(in <-chan *Node) error {
+func (h *HsnapMem) Write(in <-chan *Node) error {
 	for n := range in {
 		h.Nodes = append(h.Nodes, n)
 	}

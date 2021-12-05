@@ -7,18 +7,18 @@ import (
 	"github.com/dav-m85/hashsnap/core"
 )
 
-func Info(local core.Hsnap) {
+func Info(local core.Noder) {
 	var size uint64
 	var count uint64
 
-	stream, err := local.ChannelRead(context.Background())
+	stream, err := local.Read(context.Background())
 	if err != nil {
 		panic(err)
 	}
 	for n := range stream {
-		if n.RootPath != "" {
-			fmt.Printf("Snapshot captured in %s\n", n.RootPath)
-		}
+		// if n.RootPath != "" {
+		// 	fmt.Printf("Snapshot captured in %s\n", n.RootPath)
+		// }
 		if n.Mode.IsDir() {
 			continue
 		}
