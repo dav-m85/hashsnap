@@ -2,16 +2,42 @@ package cmd
 
 import (
 	"context"
+	"flag"
+	"os"
 
 	"github.com/dav-m85/hashsnap/core"
 	bar "github.com/schollz/progressbar/v3"
 )
 
-func Create(target string, outfile core.Noder, progress bool) error {
+type CreateFlags struct {
+	progress bool
+}
+
+var cf = new(CreateFlags)
+
+func Create() {
+	f := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+
+	f.BoolVar(&cf.progress, "progress", false, "help message for flagname")
+	f.Parse(os.Args[2:])
+
+	// target string, outfile core.Noder, progress bool
+
+	var err error
+	var target string
+	if target == "" {
+		target, err = os.Getwd()
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	outfile := core.MakeHsnapFile(".hsnap")
+
 	// excludes := core.Exclusions{".git", ".DS_Store"}
 
 	var pbar *bar.ProgressBar
-	if progress {
+	if cf.progress {
 		pbar = bar.DefaultBytes(
 			-1,
 			"Hashing",
@@ -20,6 +46,7 @@ func Create(target string, outfile core.Noder, progress bool) error {
 
 	// Pipeline context... cancelling it cancels them all
 	ctx, cleanup := context.WithCancel(context.Background())
+	defer cleanup()
 
 	// ⛲️ Source by exploring all files
 	nodes, err := core.WalkFS(ctx, target, nil)
@@ -35,8 +62,4 @@ func Create(target string, outfile core.Noder, progress bool) error {
 	if err != nil {
 		panic(err)
 	}
-
-	cleanup()
-
-	return nil
 }

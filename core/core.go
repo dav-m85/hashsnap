@@ -5,23 +5,22 @@ import (
 	"time"
 )
 
-// Info header for a .hsnap file
+// Info header
 type Info struct {
 	RootPath  string
 	CreatedAt time.Time
 	Version   int
 }
 
-// TODO Rename to Noder
 type Noder interface {
 	Info() Info
 	Read(context.Context) (<-chan *Node, error)
 	Write(<-chan *Node) error
 }
 
-func Read(snap Noder) (all []*Node) {
+func ReadAll(n Noder) (all []*Node) {
 	ctx := context.Background()
-	out, _ := snap.Read(ctx)
+	out, _ := n.Read(ctx)
 	for n := range out {
 		all = append(all, n)
 	}

@@ -15,7 +15,7 @@ func Trim(local core.Noder, withs []core.Noder) {
 	var size uint64
 	var count uint64
 
-	for _, n := range core.Read(local) {
+	for _, n := range core.ReadAll(local) {
 		if g, ok := matches[n.Hash]; ok {
 			fmt.Printf("DUP %s:\n%s\n", n, g)
 			size = size + n.Size

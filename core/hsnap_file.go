@@ -61,7 +61,7 @@ func (h *HsnapFile) Info() Info {
 	}
 }
 
-// ChannelRead decodes a hsnap file into a stream of *Node.
+// Read, see Noder interface
 func (h *HsnapFile) Read(ctx context.Context) (<-chan *Node, error) {
 	f, err := os.Open(h.path)
 	if err != nil {
@@ -73,7 +73,7 @@ func (h *HsnapFile) Read(ctx context.Context) (<-chan *Node, error) {
 		defer f.Close()
 		defer close(out)
 
-		nodes := make(map[uint64]*Node)
+		// nodes := make(map[uint64]*Node)
 
 		w := bufio.NewReader(f)
 		enc := gob.NewDecoder(w)
@@ -100,15 +100,15 @@ func (h *HsnapFile) Read(ctx context.Context) (<-chan *Node, error) {
 			}
 
 			// Lets fill parent
-			nodes[n.ID] = n
-			if n.ParentID != 0 {
-				parent, ok := nodes[n.ParentID]
-				if !ok {
-					log.Printf("Cannot solve parent")
-					continue
-				}
-				n.parent = parent
-			}
+			// nodes[n.ID] = n
+			// if n.ParentID != 0 {
+			// 	parent, ok := nodes[n.ParentID]
+			// 	if !ok {
+			// 		log.Printf("Cannot solve parent")
+			// 		continue
+			// 	}
+			// 	n.parent = parent
+			// }
 
 			select {
 			case <-ctx.Done():
@@ -121,7 +121,17 @@ func (h *HsnapFile) Read(ctx context.Context) (<-chan *Node, error) {
 	return out, nil
 }
 
-// ChannelWrite encodes a hsnap file given a stream of *Node.
+type SNode struct {
+	ID   uint64
+	Node *Node
+
+	// Parent node
+	// Move to specialized encoder :)
+	ParentID uint64
+	depth    uint64
+}
+
+// Write, see Noder interface
 func (h *HsnapFile) Write(in <-chan *Node) error {
 	if _, err := os.Stat(h.path); err == nil {
 		return fmt.Errorf("%s already exists, aborting", h.path)
@@ -145,7 +155,12 @@ func (h *HsnapFile) Write(in <-chan *Node) error {
 	})
 
 	for f := range in {
-		enc.Encode(f)
+		n := SNode{
+			Node:     f,
+			ID:       1,
+			ParentID: 2,
+		}
+		enc.Encode(n)
 	}
 
 	return nil

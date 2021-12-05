@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/dav-m85/hashsnap/cmd"
@@ -11,6 +10,24 @@ import (
 )
 
 func main() {
+	args := os.Args[1:]
+	if len(args) == 0 {
+		help()
+	}
+
+	switch args[0] {
+	case "help":
+		help()
+
+	case "create":
+		cmd.Create()
+
+	default:
+		fmt.Printf("hsnap: '%s' is not a hsnap command. See 'hsnap help'.\n", args[1])
+		return
+	}
+	return
+
 	flaggy.SetName("hashsnap")
 	flaggy.SetDescription("A snapshot manipulator to ease deduplication across filesystems")
 
@@ -65,18 +82,18 @@ func main() {
 		local2 := core.MakeHsnapFile(output)
 		cmd.Convert(local, local2)
 
-	case createCmd.Used:
-		var err error
-		if root == "" {
-			root, err = os.Getwd()
-			if err != nil {
-				panic(err)
-			}
-		}
+	// case createCmd.Used:
+	// 	var err error
+	// 	if root == "" {
+	// 		root, err = os.Getwd()
+	// 		if err != nil {
+	// 			panic(err)
+	// 		}
+	// 	}
 
-		if err := cmd.Create(root, local, progress); err != nil {
-			log.Fatal("Cannot create:", err)
-		}
+	// 	if err := cmd.Create(root, local, progress); err != nil {
+	// 		log.Fatal("Cannot create:", err)
+	// 	}
 
 	// case listCmd.Used:
 	// 	cmd.List(local)
@@ -97,4 +114,26 @@ func main() {
 	default:
 		fmt.Println("Use --help")
 	}
+}
+
+func help() {
+	fmt.Println(`usage: hsnap [--version] [--help] [-C <path>] [-c <name>=<value>]
+	[--exec-path[=<path>]] [--html-path] [--man-path] [--info-path]
+	[-p | --paginate | -P | --no-pager] [--no-replace-objects] [--bare]
+	[--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>]
+	<command> [<args>]
+
+These are common Hsnap commands used in various situations:
+
+start a working area (see also: git help tutorial)
+clone     Clone a repository into a new directory
+init      Create an empty Git repository or reinitialize an existing one
+
+work on the current change (see also: git help everyday)
+add       Add file contents to the index
+mv        Move or rename a file, a directory, or a symlink
+restore   Restore working tree files
+rm        Remove files from the working tree and from the index
+`)
+	os.Exit(0)
 }

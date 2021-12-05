@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 )
 
+var lstat = os.Lstat
+
 // Skipper indicate a Node should be skipped by returning true
 type Skipper func(*Node) bool
 
@@ -45,14 +47,16 @@ func WalkFS(ctx context.Context, path string, skip Skipper) (<-chan *Node, error
 
 	go func() {
 		var q []*Node
-		var id uint64 = 1
 
 		defer close(out)
 
 		// Appending the root to the processing queue, in order to bootstrap
 		// the BFS routine below.
-		root := MakeRootNode(path)
-		root.ID = id
+		info, err := lstat(path)
+		if err != nil {
+			panic("Node creation failed: " + err.Error())
+		}
+		root := NewNode(info)
 		q = append(q, root)
 
 		// Actual BFS
@@ -63,28 +67,25 @@ func WalkFS(ctx context.Context, path string, skip Skipper) (<-chan *Node, error
 
 			// Walk deeper
 			if node.Mode.IsDir() {
-				path, err := node.Path()
-				if err != nil {
-					log.Fatalf("A node has no path in create: %s", err)
-				}
-				names, err := readDirNames(path)
+				names, err := readDirNames(node.Path())
 				if err != nil {
 					log.Printf("Listing directory %s failed: %s", path, err)
 					continue
 				}
 				for _, name := range names {
-					child, err := MakeChildNode(node, name)
+					cpath := filepath.Join(path, name)
+					info, err := lstat(cpath)
 					if err != nil {
 						log.Printf("Node creation failed: %s", err)
 					}
+					child := NewNode(info)
+					child.path = cpath
 
 					if skip != nil && skip(child) {
 						continue
 					}
 
-					// This file is legit, let's assign it an ID
-					id++
-					child.ID = id
+					node.Attach(child)
 
 					q = append(q, child)
 				}

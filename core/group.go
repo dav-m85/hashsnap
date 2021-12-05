@@ -19,14 +19,8 @@ type ByPath []*Node
 
 func (a ByPath) Len() int { return len(a) }
 func (a ByPath) Less(i, j int) bool {
-	x, err := a[i].Path()
-	if err != nil {
-		panic(err)
-	}
-	y, err := a[j].Path()
-	if err != nil {
-		panic(err)
-	}
+	x := a[i].Path()
+	y := a[j].Path()
 	return x < y
 }
 func (a ByPath) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
@@ -62,7 +56,7 @@ func (h HashGroup) Dedup() {
 			cnt := len(group.Nodes)
 			names := []string{}
 			for _, g := range group.Nodes {
-				p, _ := g.Path()
+				p := g.Path()
 				names = append(names, p)
 			}
 			fmt.Printf("Duplicates %s (%s), %d times\n\t%s\n\n", group.Nodes[0].Name, ByteSize(group.Size), len(group.Nodes), strings.Join(names, "\n\t"))

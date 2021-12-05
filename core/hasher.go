@@ -46,7 +46,7 @@ func Hasher(ctx context.Context, pbar *bar.ProgressBar, in <-chan *Node) <-chan 
 
 // computeHash reads the file and computes the sha1 of it
 func computeHash(n *Node, pbar *bar.ProgressBar) error {
-	fd, err := os.Open(n.path)
+	fd, err := os.Open(n.Path())
 	if err != nil {
 		return err
 	}
