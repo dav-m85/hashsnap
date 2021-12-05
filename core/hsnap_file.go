@@ -78,7 +78,7 @@ func (h *HsnapFile) ChannelRead(ctx context.Context) (<-chan *Node, error) {
 		w := bufio.NewReader(f)
 		enc := gob.NewDecoder(w)
 
-		var h *header = &header{}
+		var h *Info = &Info{}
 		err := enc.Decode(h)
 		if err != nil || h.Version == 0 {
 			fmt.Printf("Old archive found: %s\n", err)
@@ -115,17 +115,18 @@ func (h *HsnapFile) ChannelRead(ctx context.Context) (<-chan *Node, error) {
 				return
 			case out <- n:
 			}
-
 		}
 
 	}()
 	return out, nil
 }
 
-// ChannelWrite encodes a hsnap file given a stream of *Node. Signal end of processing
-// by sending on the done channel the number of written Node.
-// done chan uint64
+// ChannelWrite encodes a hsnap file given a stream of *Node.
 func (h *HsnapFile) ChannelWrite(in <-chan *Node) error {
+	if _, err := os.Stat(h.path); err == nil {
+		return fmt.Errorf("%s already exists, aborting", h.path)
+	}
+
 	f, err := os.Create(h.path)
 	if err != nil {
 		return err
@@ -138,7 +139,7 @@ func (h *HsnapFile) ChannelWrite(in <-chan *Node) error {
 
 	enc := gob.NewEncoder(w)
 
-	enc.Encode(header{
+	enc.Encode(Info{
 		Version:  1,
 		RootPath: h.path,
 	})

@@ -30,7 +30,7 @@ type Node struct {
 	path     string // full absolute path with Name
 	depth    uint64
 
-	// Root only has this
+	// Root only has this, replaced by Info in subsequent versions
 	RootPath string
 }
 

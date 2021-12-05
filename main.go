@@ -14,14 +14,14 @@ func main() {
 	flaggy.SetName("hashsnap")
 	flaggy.SetDescription("A snapshot manipulator to ease deduplication across filesystems")
 
-	var snapshot, root string
+	var snapshot, root, output string
 	var progress bool
 
-	// // convert
-	// convertCmd := flaggy.NewSubcommand("convert")
-	// convertCmd.AddPositionalValue(&snapshot, "file", 1, true, "Input file")
-	// convertCmd.AddPositionalValue(&output, "file", 2, true, "Output file")
-	// flaggy.AttachSubcommand(convertCmd, 1)
+	// convert
+	convertCmd := flaggy.NewSubcommand("convert")
+	convertCmd.AddPositionalValue(&snapshot, "file", 1, true, "Input file")
+	convertCmd.AddPositionalValue(&output, "file", 2, true, "Output file")
+	flaggy.AttachSubcommand(convertCmd, 1)
 
 	// create
 	createCmd := flaggy.NewSubcommand("create")
@@ -61,9 +61,9 @@ func main() {
 	local := core.MakeHsnapFile(snapshot)
 
 	switch {
-	// case convertCmd.Used:
-	// 	local2 := core.MakeHsnapFile(snapshot)
-	// 	cmd.Convert(local, local2)
+	case convertCmd.Used:
+		local2 := core.MakeHsnapFile(output)
+		cmd.Convert(local, local2)
 
 	case createCmd.Used:
 		var err error

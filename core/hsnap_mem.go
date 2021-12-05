@@ -37,3 +37,7 @@ func (h *HsnapMem) ChannelWrite(in <-chan *Node) error {
 	}
 	return nil
 }
+
+func (h *HsnapMem) Info() Info {
+	return Info{}
+}
