@@ -23,13 +23,9 @@ func Create() {
 
 	// target string, outfile core.Noder, progress bool
 
-	var err error
-	var target string
-	if target == "" {
-		target, err = os.Getwd()
-		if err != nil {
-			panic(err)
-		}
+	target, err := os.Getwd()
+	if err != nil {
+		panic(err)
 	}
 
 	outfile := core.MakeHsnapFile(".hsnap")
