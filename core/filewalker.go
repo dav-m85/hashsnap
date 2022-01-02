@@ -34,13 +34,13 @@ func MakeNameSkipper(names []string) Skipper {
 // It generates a stream of *Nodes to be used.
 // Once the walker has explored all files, it closes the emitting channel.
 // Each node receives a unique increment id, starting at 1.
-func WalkFS(ctx context.Context, path string, skip Skipper) (<-chan *Node, error) {
+func WalkFS(ctx context.Context, rpath string, skip Skipper) (<-chan *Node, error) {
 	if skip == nil {
 		skip = DefaultSkipper
 	}
 
-	if !filepath.IsAbs(path) {
-		return nil, fmt.Errorf("Path should be absolute: %s", path)
+	if !filepath.IsAbs(rpath) {
+		return nil, fmt.Errorf("Path should be absolute: %s", rpath)
 	}
 
 	out := make(chan *Node)
@@ -52,7 +52,7 @@ func WalkFS(ctx context.Context, path string, skip Skipper) (<-chan *Node, error
 
 		// Appending the root to the processing queue, in order to bootstrap
 		// the BFS routine below.
-		info, err := lstat(path)
+		info, err := lstat(rpath)
 		if err != nil {
 			panic("Node creation failed: " + err.Error())
 		}
@@ -65,21 +65,21 @@ func WalkFS(ctx context.Context, path string, skip Skipper) (<-chan *Node, error
 			node := q[0]
 			q = q[1:]
 
-			// Walk deeper
+			// Walk deeper in directory
 			if node.Mode.IsDir() {
-				names, err := readDirNames(node.Path())
+				dpath := filepath.Join(rpath, node.Path())
+				names, err := readDirNames(dpath)
 				if err != nil {
-					log.Printf("Listing directory %s failed: %s", path, err)
+					log.Printf("Listing directory %s failed: %s", dpath, err)
 					continue
 				}
 				for _, name := range names {
-					cpath := filepath.Join(path, name)
+					cpath := filepath.Join(dpath, name)
 					info, err := lstat(cpath)
 					if err != nil {
 						log.Printf("Node creation failed: %s", err)
 					}
 					child := NewNode(info)
-					child.path = cpath
 
 					if skip != nil && skip(child) {
 						continue

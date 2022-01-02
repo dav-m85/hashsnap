@@ -1,11 +1,8 @@
 package core
 
 import (
-	"context"
 	"crypto/sha1"
 	"fmt"
-	"log"
-	"sort"
 	"strings"
 )
 
@@ -68,37 +65,38 @@ func (h HashGroup) Dedup() {
 }
 
 // Load ignores Dirs
-func (hg HashGroup) Load(snap Noder) error {
-	// var i uint64
-	nodes, err := snap.Read(context.Background())
-	if err != nil {
-		return err
-	}
-	for {
-		select {
-		case n, ok := <-nodes:
-			if !ok {
-				// End of processing... let's sort them all
-				for _, v := range hg {
-					sort.Sort(ByPath(v.Nodes))
-				}
-				return nil
-			}
-			if n.Mode.IsDir() {
-				continue
-			}
+// TODO channel is useless here
+// func (hg HashGroup) Load(snap Noder) error {
+// 	// var i uint64
+// 	nodes, err := snap.Read(context.Background())
+// 	if err != nil {
+// 		return err
+// 	}
+// 	for {
+// 		select {
+// 		case n, ok := <-nodes:
+// 			if !ok {
+// 				// End of processing... let's sort them all
+// 				for _, v := range hg {
+// 					sort.Sort(ByPath(v.Nodes))
+// 				}
+// 				return nil
+// 			}
+// 			if n.Mode.IsDir() {
+// 				continue
+// 			}
 
-			match, ok := hg[n.Hash]
-			if ok {
-				if match.Size != n.Size {
-					log.Fatalln("Collision, same hash but different size")
-				}
-				// matching group found; add this file to existing group
-				match.Nodes = append(match.Nodes, n)
-			} else {
-				// create new group in map
-				hg[n.Hash] = &Group{[]*Node{n}, n.Size}
-			}
-		}
-	}
-}
+// 			match, ok := hg[n.Hash]
+// 			if ok {
+// 				if match.Size != n.Size {
+// 					log.Fatalln("Collision, same hash but different size")
+// 				}
+// 				// matching group found; add this file to existing group
+// 				match.Nodes = append(match.Nodes, n)
+// 			} else {
+// 				// create new group in map
+// 				hg[n.Hash] = &Group{[]*Node{n}, n.Size}
+// 			}
+// 		}
+// 	}
+// }

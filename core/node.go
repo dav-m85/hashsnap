@@ -18,14 +18,29 @@ type Node struct {
 
 	Hash [sha1.Size]byte // hash.Hash // sha1.New()
 
+	ID, ParentID int
+
 	parent   *Node
 	children []*Node
-	path     string // full absolute path with Name
 }
+
+func (n *Node) Parent() *Node {
+	return n.parent
+}
+
+// Children of Node. Beware, while decoding, this field could be not entirely
+// filled until whole file has been decoded.
+func (n *Node) Children() []*Node {
+	return n.children
+}
+
+var IncrementID = 0
 
 // NewNode creates a Node given its FileInfo
 func NewNode(info fs.FileInfo) *Node {
+	IncrementID++
 	return &Node{
+		ID:   IncrementID,
 		Mode: info.Mode(),
 		Name: info.Name(),
 		Size: uint64(info.Size()),
@@ -33,27 +48,32 @@ func NewNode(info fs.FileInfo) *Node {
 }
 
 func (n Node) String() string {
-	return fmt.Sprintf("%d (in %d), %s %d %s", n.Name, n.Size, n.path)
+	return fmt.Sprintf("%d %s (in %d, %d children)", n.ID, n.Path(), n.ParentID, len(n.children))
 }
 
-// Path retrieve the absolute path of current Node by walking the parent tree
+// Path relative to the root Node
 func (n *Node) Path() string {
-	if n.path != "" {
-		return n.path
-	}
+	// if n.path != "" {
+	// 	return n.path
+	// }
 	if n.parent == nil {
-		panic("Node has no parent set") // Root Node has always a path set
+		return ""
+	}
+	pp := n.parent.Path()
+	if pp == "" {
+		return n.Name
 	}
 	return filepath.Join(n.parent.Path(), n.Name)
 }
 
 // Attach nodes as children
 func (n *Node) Attach(children ...*Node) {
+	n.children = append(n.children, children...)
 	for _, c := range children {
 		if c.parent != nil {
 			panic("parent already declared")
 		}
 		c.parent = n
-		n.children = append(n.children, c)
+		c.ParentID = n.ID // Useful for decoding
 	}
 }

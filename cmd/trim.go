@@ -1,27 +1,22 @@
 package cmd
 
-import (
-	"fmt"
+func Trim() error {
+	// matches := make(core.HashGroup)
+	// for _, w := range withs {
+	// 	matches.Load(w)
+	// }
 
-	"github.com/dav-m85/hashsnap/core"
-)
+	// var size uint64
+	// var count uint64
 
-func Trim(local core.Noder, withs []core.Noder) {
-	matches := make(core.HashGroup)
-	for _, w := range withs {
-		matches.Load(w)
-	}
+	// for _, n := range core.ReadAll(local) {
+	// 	if g, ok := matches[n.Hash]; ok {
+	// 		fmt.Printf("DUP %s:\n%s\n", n, g)
+	// 		size = size + n.Size
+	// 		count++
+	// 	}
+	// }
 
-	var size uint64
-	var count uint64
-
-	for _, n := range core.ReadAll(local) {
-		if g, ok := matches[n.Hash]; ok {
-			fmt.Printf("DUP %s:\n%s\n", n, g)
-			size = size + n.Size
-			count++
-		}
-	}
-
-	fmt.Printf("Duplication totalling %s and %d files\n", core.ByteSize(size), count)
+	// fmt.Printf("Duplication totalling %s and %d files\n", core.ByteSize(size), count)
+	return nil
 }

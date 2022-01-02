@@ -26,6 +26,21 @@ Running on a NAS without screen/tmux and forgetting about it:
 ## Bench
 On my quadcore + SSD workstation, it takes ~2min to hash 6GB of data, resulting in a ~360k hashsnap file.
 
+## CODE RETRIEVAL
+- en train de mettre des flags sur les commandes essentielles
+- simplifie le code, je dégage les HasnapFile interface
+
+
+
+
+
+
+
+
+
+
+
+
 ## TODO
 - be able to resume a hashing, by leveraging file existence.
 - be able to "check" a snapshot, for file existence.
