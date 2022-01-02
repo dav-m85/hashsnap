@@ -4,6 +4,8 @@ import (
 	"encoding/gob"
 	"fmt"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const MaxInt = int(^uint(0) >> 1)
@@ -13,6 +15,7 @@ type Info struct {
 	RootPath  string
 	CreatedAt time.Time
 	Version   int
+	Nonce     uuid.UUID
 }
 
 type NodeIDMap map[int]*Node

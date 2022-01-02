@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/dav-m85/hashsnap/core"
+	"github.com/google/uuid"
 	bar "github.com/schollz/progressbar/v3"
 )
 
@@ -60,6 +61,7 @@ func Create() error {
 		Version:   1,
 		RootPath:  target,
 		CreatedAt: time.Now(),
+		Nonce:     uuid.New(),
 	})
 
 	// Pipeline context... cancelling it cancels them all

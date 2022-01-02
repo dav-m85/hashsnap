@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dav-m85/hashsnap/core"
+	"github.com/google/uuid"
 )
 
 type legacyNode struct {
@@ -84,6 +85,7 @@ func Convert() error {
 				Version:   1,
 				RootPath:  n.RootPath,
 				CreatedAt: time.Now(),
+				Nonce:     uuid.New(),
 			}); err != nil {
 				return err
 			}

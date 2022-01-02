@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/dav-m85/hashsnap/core"
+	"github.com/google/uuid"
 )
 
 type TrimFlags struct {
@@ -58,6 +59,8 @@ func Trim() error {
 	return nil
 }
 
+var withsNonce []uuid.UUID
+
 func readNodes(file string) ([]*core.Node, error) {
 	f, err := os.Open(file)
 	if err != nil {
@@ -72,6 +75,12 @@ func readNodes(file string) ([]*core.Node, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot decode info header: %s", err)
 	}
+	for _, x := range withsNonce {
+		if x == h.Nonce {
+			return nil, fmt.Errorf("file has already been imported once")
+		}
+	}
+	withsNonce = append(withsNonce, h.Nonce)
 
 	ndec := core.NewDecoder(dec)
 
