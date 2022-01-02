@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/gob"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -9,11 +10,23 @@ import (
 	"github.com/dav-m85/hashsnap/core"
 )
 
+type TrimFlags struct {
+	verbose bool
+}
+
+var tf = new(TrimFlags)
+
 func Trim() error {
-	if len(os.Args) < 3 {
+	fl := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+
+	fl.BoolVar(&tf.verbose, "verbose", false, "list all groups")
+	fl.Parse(os.Args[2:])
+
+	if len(fl.Args()) == 0 {
 		return fmt.Errorf("wrong usage")
 	}
-	withs := os.Args[2:]
+
+	withs := fl.Args()
 
 	matches := make(core.HashGroup)
 	for _, w := range withs {
@@ -34,7 +47,9 @@ func Trim() error {
 		if len(g.Nodes) < 2 {
 			continue
 		}
-		// fmt.Println(g)
+		if tf.verbose {
+			fmt.Println(g)
+		}
 		count++
 		waste = waste + int64(g.WastedSize())
 	}
