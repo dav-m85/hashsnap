@@ -30,12 +30,18 @@ func Trim() error {
 	withs := fl.Args()
 
 	matches := make(core.HashGroup)
-	for _, w := range withs {
+	for k, w := range withs {
 		ns, err := readNodes(w)
 		if err != nil {
 			return err
 		}
-		err = matches.Add(ns)
+		if k == 0 {
+			fmt.Println("Add", w)
+			err = matches.Add(ns)
+		} else {
+			fmt.Println("Intersect", w)
+			err = matches.Intersect(ns)
+		}
 		if err != nil {
 			return err
 		}

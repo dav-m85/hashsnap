@@ -47,13 +47,30 @@ func (r HashGroup) Add(ns []*Node) error {
 		}
 		if grp, ok := r[n.Hash]; ok {
 			if grp.Size != n.Size {
-				return fmt.Errorf("Collision, same hash but different size")
+				return fmt.Errorf("collision, same hash but different size")
 			}
 			// matching group found; add this file to existing group
 			grp.Nodes = append(grp.Nodes, n)
 		} else {
 			// create new group in map
 			r[n.Hash] = &Group{[]*Node{n}, n.Hash, n.Size}
+		}
+	}
+	return nil
+}
+
+// Intersect adds nodes if their hash is already present (does not create new groups)
+func (r HashGroup) Intersect(ns []*Node) error {
+	for _, n := range ns {
+		if n.Mode.IsDir() {
+			continue
+		}
+		if grp, ok := r[n.Hash]; ok {
+			if grp.Size != n.Size {
+				return fmt.Errorf("collision, same hash but different size")
+			}
+			// matching group found; add this file to existing group
+			grp.Nodes = append(grp.Nodes, n)
 		}
 	}
 	return nil
