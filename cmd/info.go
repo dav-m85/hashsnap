@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/gob"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -9,10 +10,21 @@ import (
 	"github.com/dav-m85/hashsnap/core"
 )
 
+type InfoFlags struct {
+	input string
+}
+
+var ifl = new(InfoFlags)
+
 // Info opens an hsnap, read its info header and counts how many nodes it has
 // it does not check for sanity (like child has a valid parent and so on)
 func Info() error {
-	f, err := os.Open(".hsnap")
+	fl := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+
+	fl.StringVar(&ifl.input, "input", ".hsnap", "help message for flagname")
+	fl.Parse(os.Args[2:])
+
+	f, err := os.Open(ifl.input)
 	if err != nil {
 		return fmt.Errorf("cannot open file: %s", err)
 	}
