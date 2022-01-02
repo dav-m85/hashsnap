@@ -10,7 +10,7 @@ const (
 )
 
 // ByteSize represents a byte quantity
-type ByteSize uint64
+type ByteSize int64
 
 // String gives a human readable string
 // Based on https://yourbasic.org/golang/formatting-byte-size-to-human-readable-format/

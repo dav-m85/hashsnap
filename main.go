@@ -27,6 +27,9 @@ func main() {
 	case "info":
 		err = cmd.Info()
 
+	case "trim":
+		err = cmd.Trim()
+
 	default:
 		fmt.Printf("hsnap: '%s' is not a hsnap command. See 'hsnap help'.\n", args[1])
 		return

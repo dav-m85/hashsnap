@@ -3,13 +3,14 @@ package core
 import (
 	"crypto/sha1"
 	"fmt"
-	"strings"
+	"sort"
 )
 
-// Group aka duplicates
+// Group of duplicated Nodes sharing the same Hash (and Size)
 type Group struct {
-	Nodes []*Node // Localnodes
-	Size  uint64
+	Nodes []*Node
+	Hash  [sha1.Size]byte
+	Size  int64
 }
 
 type ByPath []*Node
@@ -23,80 +24,37 @@ func (a ByPath) Less(i, j int) bool {
 func (a ByPath) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 
 func (g Group) String() string {
-	var s string
+	s := fmt.Sprintf("%d nodes (save %s)\n", len(g.Nodes), g.WastedSize())
+	sort.Sort(ByPath(g.Nodes))
 	for _, n := range g.Nodes {
-		s = fmt.Sprintf("%s\t%s\n", s, n)
+		s = s + fmt.Sprintf("\t%s\n", n)
 	}
 	return s
 }
 
-type ByEmbedPath struct {
-	Slice [][sha1.Size]byte
-	HG    HashGroup
+func (g Group) WastedSize() ByteSize {
+	return ByteSize(g.Size * int64(len(g.Nodes)-1))
 }
 
 // HashGroup helps comparing Hashes pretty quickly
 type HashGroup map[[sha1.Size]byte]*Group
 
-// Dedup reports duplicates within an HashGroup
-func (h HashGroup) Dedup() {
-	// Keysort groups!
-	keys := make([][sha1.Size]byte, 0, len(h))
-	for k := range h {
-		keys = append(keys, k)
-	}
-
-	var dupGroup uint64 = 0
-	var dupSize uint64 = 0
-	for _, group := range h {
-		if len(group.Nodes) > 1 {
-			cnt := len(group.Nodes)
-			names := []string{}
-			for _, g := range group.Nodes {
-				p := g.Path()
-				names = append(names, p)
+// Add a Node slice to HashGroup
+func (r HashGroup) Add(ns []*Node) error {
+	for _, n := range ns {
+		if n.Mode.IsDir() {
+			continue
+		}
+		if grp, ok := r[n.Hash]; ok {
+			if grp.Size != n.Size {
+				return fmt.Errorf("Collision, same hash but different size")
 			}
-			fmt.Printf("Duplicates %s (%s), %d times\n\t%s\n\n", group.Nodes[0].Name, ByteSize(group.Size), len(group.Nodes), strings.Join(names, "\n\t"))
-			dupGroup++
-			dupSize = dupSize + group.Size*uint64(cnt-1)
+			// matching group found; add this file to existing group
+			grp.Nodes = append(grp.Nodes, n)
+		} else {
+			// create new group in map
+			r[n.Hash] = &Group{[]*Node{n}, n.Hash, n.Size}
 		}
 	}
-	fmt.Printf("Found %d duplicated groups, totalling %s", dupGroup, ByteSize(dupSize))
+	return nil
 }
-
-// Load ignores Dirs
-// TODO channel is useless here
-// func (hg HashGroup) Load(snap Noder) error {
-// 	// var i uint64
-// 	nodes, err := snap.Read(context.Background())
-// 	if err != nil {
-// 		return err
-// 	}
-// 	for {
-// 		select {
-// 		case n, ok := <-nodes:
-// 			if !ok {
-// 				// End of processing... let's sort them all
-// 				for _, v := range hg {
-// 					sort.Sort(ByPath(v.Nodes))
-// 				}
-// 				return nil
-// 			}
-// 			if n.Mode.IsDir() {
-// 				continue
-// 			}
-
-// 			match, ok := hg[n.Hash]
-// 			if ok {
-// 				if match.Size != n.Size {
-// 					log.Fatalln("Collision, same hash but different size")
-// 				}
-// 				// matching group found; add this file to existing group
-// 				match.Nodes = append(match.Nodes, n)
-// 			} else {
-// 				// create new group in map
-// 				hg[n.Hash] = &Group{[]*Node{n}, n.Size}
-// 			}
-// 		}
-// 	}
-// }

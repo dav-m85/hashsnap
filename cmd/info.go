@@ -29,8 +29,8 @@ func Info() error {
 	ndec := core.NewDecoder(dec)
 
 	// Cycle through all nodes
-	var size uint64
-	var count uint64
+	var size int64
+	var count int64
 
 	for {
 		n := core.Node{}

@@ -14,7 +14,7 @@ import (
 type Node struct {
 	Name string
 	Mode fs.FileMode // Dir ? Link ? etc...
-	Size uint64
+	Size int64
 
 	Hash [sha1.Size]byte // hash.Hash // sha1.New()
 
@@ -43,15 +43,16 @@ func NewNode(info fs.FileInfo) *Node {
 		ID:   IncrementID,
 		Mode: info.Mode(),
 		Name: info.Name(),
-		Size: uint64(info.Size()),
+		Size: info.Size(),
 	}
 }
 
 func (n Node) String() string {
-	return fmt.Sprintf("%d %s (in %d, %d children)", n.ID, n.Path(), n.ParentID, len(n.children))
+	return fmt.Sprintf("%d %s (in %d)", n.ID, n.Path(), n.ParentID)
 }
 
 // Path relative to the root Node
+// TODO cache path result !
 func (n *Node) Path() string {
 	// if n.path != "" {
 	// 	return n.path
