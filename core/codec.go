@@ -39,7 +39,7 @@ func (nd *NodeDecoder) Decode(n *Node) error {
 
 	nd.nrm[n.ID] = n
 	// Does not solve for root
-	if n.ID == 1 {
+	if n.ID == 1 || n.ID == 0 {
 		return nil
 	}
 

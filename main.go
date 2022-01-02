@@ -30,6 +30,9 @@ func main() {
 	case "trim":
 		err = cmd.Trim()
 
+	case "convert":
+		err = cmd.Convert()
+
 	default:
 		fmt.Printf("hsnap: '%s' is not a hsnap command. See 'hsnap help'.\n", args[1])
 		return

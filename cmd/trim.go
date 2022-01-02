@@ -10,7 +10,11 @@ import (
 )
 
 func Trim() error {
-	withs := []string{".hsnap", ".hsnap"}
+	if len(os.Args) < 3 {
+		return fmt.Errorf("wrong usage")
+	}
+	withs := os.Args[2:]
+
 	matches := make(core.HashGroup)
 	for _, w := range withs {
 		ns, err := readNodes(w)
@@ -23,12 +27,19 @@ func Trim() error {
 		}
 	}
 
+	var count int64
+	var waste int64
+
 	for _, g := range matches {
 		if len(g.Nodes) < 2 {
 			continue
 		}
-		fmt.Println(g)
+		// fmt.Println(g)
+		count++
+		waste = waste + int64(g.WastedSize())
 	}
+
+	fmt.Printf("%d duplicated groups, totalling %s wasted space\n", count, core.ByteSize(waste))
 	return nil
 }
 
