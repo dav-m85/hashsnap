@@ -48,7 +48,7 @@ func NewNode(info fs.FileInfo) *Node {
 }
 
 func (n Node) String() string {
-	return fmt.Sprintf("%d %s (in %d)", n.ID, n.Path(), n.ParentID)
+	return fmt.Sprintf("%d(%d) %s", n.ID, n.ParentID, n.Path())
 }
 
 // Path relative to the root Node

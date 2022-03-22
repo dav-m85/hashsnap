@@ -7,7 +7,6 @@ import (
 	"github.com/dav-m85/hashsnap/cmd"
 )
 
-// A snapshot manipulator to ease deduplication across filesystems
 func main() {
 	args := os.Args[1:]
 	if len(args) == 0 {
@@ -27,7 +26,7 @@ func main() {
 		help()
 
 	case "info":
-		err = cmd.Info()
+		err = cmd.Info(args[1:])
 
 	case "trim":
 		err = cmd.Trim()
@@ -46,7 +45,7 @@ func main() {
 func help() {
 	fmt.Print(`usage: hsnap <command> [<args>]
 
-These are common Hsnap commands used in various situations:
+These are common hsnap commands used in various situations:
 
 create    Make a snapshot for current working directory
 info      Detail content of a snapshot

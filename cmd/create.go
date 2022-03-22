@@ -2,14 +2,12 @@ package cmd
 
 import (
 	"context"
-	"encoding/gob"
+	"errors"
 	"flag"
-	"fmt"
 	"os"
-	"time"
 
 	"github.com/dav-m85/hashsnap/core"
-	"github.com/google/uuid"
+	"github.com/dav-m85/hashsnap/state"
 	bar "github.com/schollz/progressbar/v3"
 )
 
@@ -32,6 +30,14 @@ func Create() error {
 		return err
 	}
 
+	st, err := state.StateIn(target)
+	if err != nil {
+		return err
+	}
+	if st != nil {
+		return errors.New("already a hsnap directory or child")
+	}
+
 	// excludes := core.Exclusions{".git", ".DS_Store"}
 
 	var pbar *bar.ProgressBar
@@ -42,27 +48,12 @@ func Create() error {
 		)
 	}
 
-	filename := ".hsnap"
-
-	if _, err := os.Stat(filename); err == nil {
-		return fmt.Errorf("%s already exists, aborting", filename)
-	}
-
-	f, err := os.Create(filename)
+	st = state.NewStateFileIn(target)
+	enc, close, err := st.Create()
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-
-	enc := gob.NewEncoder(f)
-
-	// Write info node
-	enc.Encode(core.Info{
-		Version:   1,
-		RootPath:  target,
-		CreatedAt: time.Now(),
-		Nonce:     uuid.New(),
-	})
+	defer close()
 
 	// Pipeline context... cancelling it cancels them all
 	ctx, cleanup := context.WithCancel(context.Background())
@@ -84,6 +75,8 @@ func Create() error {
 			return err
 		}
 	}
+
+	// TODO explains what happned !
 
 	return nil
 }
