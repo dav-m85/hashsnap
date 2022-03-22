@@ -15,7 +15,7 @@ Say you have a directory `somedir`, and want to deduplicate it.
     hashsnap create
 
     # State of hsnap in current directory
-    hashsnap ls [./some/dir/inside/somedir]
+    hashsnap info [./some/dir/inside/somedir]
 
 Now, say you have a NAS where you have already stored a few files of somedir, and have
 them removed of somedir
@@ -24,7 +24,11 @@ them removed of somedir
     hashsnap create nas.hsnap
 
     # In somedir
-    hashsnap dedup somedir.hsnap --with nas.hsnap
+    hashsnap trim nas.hsnap
+
+Also deduplication works with:
+
+    hashsnap dedup --keep ./somedir (will stop running on first undecided pair)
 
 Running on a NAS without screen/tmux and forgetting about it:
 

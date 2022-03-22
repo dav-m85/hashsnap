@@ -34,6 +34,7 @@ func Trim() error {
 		return err
 	}
 
+	// TEST this could be provided by main
 	st, err := state.StateIn(target)
 	if err != nil {
 		return err
@@ -58,6 +59,7 @@ func Trim() error {
 	}
 
 	for _, w := range withs {
+		// TEST abstract this by using global var
 		ns := state.NewStateFile(w)
 		nodes, err := ns.Nodes()
 		if err != nil {
