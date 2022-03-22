@@ -74,7 +74,7 @@ func (sf *StateFile) Create() (*gob.Encoder, func() error, error) {
 	// Write info node
 	err = enc.Encode(core.Info{
 		Version:   1,
-		RootPath:  sf.Path,
+		RootPath:  path.Dir(sf.Path),
 		CreatedAt: time.Now(),
 		Nonce:     uuid.New(),
 	})
