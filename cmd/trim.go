@@ -1,13 +1,13 @@
 package cmd
 
 import (
-	"encoding/gob"
+	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/dav-m85/hashsnap/core"
+	"github.com/dav-m85/hashsnap/state"
 	"github.com/google/uuid"
 )
 
@@ -29,20 +29,50 @@ func Trim() error {
 
 	withs := fl.Args()
 
+	target, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	st, err := state.StateIn(target)
+	if err != nil {
+		return err
+	}
+	if st == nil {
+		return errors.New("not an hsnap directory or child")
+	}
+	nodes, err := st.Nodes()
+	if err != nil {
+		return err
+	}
+	defer nodes.Close()
+	withsNonce = append(withsNonce, st.Info.Nonce)
+
 	matches := make(core.HashGroup)
-	for k, w := range withs {
-		ns, err := readNodes(w)
+
+	if err := matches.Add(state.ReadAll(nodes)); err != nil {
+		return err
+	}
+	if err := nodes.Error(); err != nil {
+		return err
+	}
+
+	for _, w := range withs {
+		ns := state.NewStateFile(w)
+		nodes, err := ns.Nodes()
 		if err != nil {
 			return err
 		}
-		if k == 0 {
-			fmt.Println("Add", w)
-			err = matches.Add(ns)
-		} else {
-			fmt.Println("Intersect", w)
-			err = matches.Intersect(ns)
+		// TODO withsNonce = append(withsNonce, st.Info.Nonce)
+		// for _, x := range withsNonce {
+		// 	if x == st.Info.Nonce {
+		// 		return nil, fmt.Errorf("file has already been imported once")
+		// 	}
+		// }
+		if err := matches.Intersect(state.ReadAll(nodes)); err != nil {
+			return err
 		}
-		if err != nil {
+		if err := nodes.Error(); err != nil {
 			return err
 		}
 	}
@@ -66,43 +96,3 @@ func Trim() error {
 }
 
 var withsNonce []uuid.UUID
-
-func readNodes(file string) ([]*core.Node, error) {
-	f, err := os.Open(file)
-	if err != nil {
-		return nil, fmt.Errorf("cannot open file: %s", err)
-	}
-	defer f.Close()
-	dec := gob.NewDecoder(f)
-
-	// Read the info header
-	var h *core.Info = &core.Info{}
-	err = dec.Decode(h)
-	if err != nil {
-		return nil, fmt.Errorf("cannot decode info header: %s", err)
-	}
-	for _, x := range withsNonce {
-		if x == h.Nonce {
-			return nil, fmt.Errorf("file has already been imported once")
-		}
-	}
-	withsNonce = append(withsNonce, h.Nonce)
-
-	ndec := core.NewDecoder(dec)
-
-	var r []*core.Node
-
-	for {
-		n := core.Node{}
-		err := ndec.Decode(&n)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return nil, fmt.Errorf("cannot decode node: %s", err)
-		}
-		r = append(r, &n)
-	}
-
-	return r, nil
-}

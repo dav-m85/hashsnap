@@ -61,8 +61,7 @@ func (sf *StateFile) Nodes() (*NodeIterator, error) {
 	dec := gob.NewDecoder(f)
 
 	// Read the info header
-	var h *core.Info = &core.Info{}
-	err = dec.Decode(h)
+	err = dec.Decode(&sf.Info)
 	if err != nil {
 		f.Close()
 		return nil, fmt.Errorf("cannot decode info header: %s", err)
@@ -74,4 +73,14 @@ func (sf *StateFile) Nodes() (*NodeIterator, error) {
 		file: f,
 		ndec: ndec,
 	}, nil
+}
+
+func ReadAll(nodes *NodeIterator) []*core.Node {
+	var r []*core.Node
+
+	for nodes.Next() {
+		r = append(r, nodes.Node())
+	}
+
+	return r
 }

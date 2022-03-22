@@ -17,6 +17,7 @@ import (
 
 type StateFile struct {
 	Path string
+	Info core.Info
 }
 
 const STATE_NAME = ".hsnap"
