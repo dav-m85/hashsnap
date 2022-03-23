@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/dav-m85/hashsnap/core"
-	"github.com/dav-m85/hashsnap/state"
 )
 
 type InfoFlags struct {
@@ -19,22 +18,14 @@ var ifl = new(InfoFlags)
 
 // Info opens an hsnap, read its info header and counts how many nodes it has
 // it does not check for sanity (like child has a valid parent and so on)
-func Info(args []string) error {
+func Info(opt Options, args []string) error {
 	fl := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
 	// fl.StringVar(&ifl.input, "input", ".hsnap", "help message for flagname")
 	fl.Parse(args)
 	rargs := fl.Args()
 
-	target, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
-	st, err := state.StateIn(target)
-	if err != nil {
-		return err
-	}
+	st := opt.StateFile
 	if st == nil {
 		return errors.New("no state here")
 	}

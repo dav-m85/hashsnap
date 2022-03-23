@@ -17,7 +17,7 @@ type TrimFlags struct {
 
 var tf = new(TrimFlags)
 
-func Trim() error {
+func Trim(opt Options) error {
 	fl := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
 	fl.BoolVar(&tf.verbose, "verbose", false, "list all groups")
@@ -29,16 +29,8 @@ func Trim() error {
 
 	withs := fl.Args()
 
-	target, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
 	// TEST this could be provided by main
-	st, err := state.StateIn(target)
-	if err != nil {
-		return err
-	}
+	st := opt.StateFile
 	if st == nil {
 		return errors.New("not an hsnap directory or child")
 	}
@@ -59,7 +51,6 @@ func Trim() error {
 	}
 
 	for _, w := range withs {
-		// TEST abstract this by using global var
 		ns := state.NewStateFile(w)
 		nodes, err := ns.Nodes()
 		if err != nil {

@@ -17,24 +17,13 @@ type CreateFlags struct {
 
 var cf = new(CreateFlags)
 
-func Create() error {
+func Create(opt Options) error {
 	fl := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
 	fl.BoolVar(&cf.progress, "progress", false, "help message for flagname")
 	fl.Parse(os.Args[2:])
 
-	// target string, outfile core.Noder, progress bool
-
-	target, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
-	st, err := state.StateIn(target)
-	if err != nil {
-		return err
-	}
-	if st != nil {
+	if opt.StateFile != nil {
 		return errors.New("already a hsnap directory or child")
 	}
 
@@ -48,7 +37,7 @@ func Create() error {
 		)
 	}
 
-	st = state.NewStateFileIn(target)
+	st := state.NewStateFileIn(opt.WD)
 	enc, close, err := st.Create()
 	if err != nil {
 		return err
@@ -60,7 +49,7 @@ func Create() error {
 	defer cleanup()
 
 	// ⛲️ Source by exploring all files
-	nodes, err := core.WalkFS(ctx, target, nil)
+	nodes, err := core.WalkFS(ctx, opt.WD, nil)
 	if err != nil {
 		return err
 	}
