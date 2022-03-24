@@ -1,14 +1,21 @@
-Work in progress
+> Work in progress
 
 # hashsnap
-Create a hash snapshot of a file tree, and perform deduplication using multiple snapshots.
+Deduplicate files using snapshots, possibly from separate storage.
+
+Usual approach for deduplicating files is "move all files on one storage, and run dedup there". What happens if no storage is big enough to hold all dedup files? Use snapshots.
+
+Hashsnap generates hashed snapshots, which are space-savvy files that can be used to dedup on other storages without having all the data on it.
 
 ## Usage
 Say you have a directory `somedir`, and want to deduplicate it.
 
     cd somedir
-    hashsnap create somedir.hsnap
-    hashsnap dedup somedir.hsnap
+    # Creates an ".hsnap" file in somedir
+    hashsnap create
+
+    # State of hsnap in current directory
+    hashsnap info [./some/dir/inside/somedir]
 
 Now, say you have a NAS where you have already stored a few files of somedir, and have
 them removed of somedir
@@ -17,29 +24,18 @@ them removed of somedir
     hashsnap create nas.hsnap
 
     # In somedir
-    hashsnap dedup somedir.hsnap --with nas.hsnap
+    hashsnap trim nas.hsnap
+
+Also deduplication works with:
+
+    hashsnap dedup --keep ./somedir (will stop running on first undecided pair)
 
 Running on a NAS without screen/tmux and forgetting about it:
 
     nohup hashsnap... </dev/null >hashsnap.log 2>&1 &
 
 ## Bench
-On my quadcore + SSD workstation, it takes ~2min to hash 6GB of data, resulting in a ~360k hashsnap file.
-
-## CODE RETRIEVAL
-- en train de mettre des flags sur les commandes essentielles
-- simplifie le code, je dégage les HasnapFile interface
-
-
-
-
-
-
-
-
-
-
-
+On my quadcore + SSD workstation, it takes around 2min to hash 6GB of data, resulting in a ~360k hashsnap file.
 
 ## TODO
 - be able to resume a hashing, by leveraging file existence.
@@ -54,8 +50,6 @@ scoring de similitude des emplacements de merge
 nb de fichier identique
 
 et swap file pour l'dit in place des fichiers hsnap
-
-
 
 ## Inspiration
 - [mathieuancelin/duplicates](https://github.com/mathieuancelin/duplicates/blob/master/duplicates.go)

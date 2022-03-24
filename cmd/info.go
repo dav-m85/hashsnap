@@ -1,64 +1,64 @@
 package cmd
 
 import (
-	"encoding/gob"
+	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"os"
+	"strings"
 
 	"github.com/dav-m85/hashsnap/core"
 )
 
 type InfoFlags struct {
-	input string
+	prefix string
 }
 
 var ifl = new(InfoFlags)
 
 // Info opens an hsnap, read its info header and counts how many nodes it has
 // it does not check for sanity (like child has a valid parent and so on)
-func Info() error {
+func Info(opt Options, args []string) error {
 	fl := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
-	fl.StringVar(&ifl.input, "input", ".hsnap", "help message for flagname")
-	fl.Parse(os.Args[2:])
+	// fl.StringVar(&ifl.input, "input", ".hsnap", "help message for flagname")
+	fl.Parse(args)
+	rargs := fl.Args()
 
-	f, err := os.Open(ifl.input)
-	if err != nil {
-		return fmt.Errorf("cannot open file: %s", err)
-	}
-	defer f.Close()
-	dec := gob.NewDecoder(f)
-
-	// Read the info header
-	var h *core.Info = &core.Info{}
-	err = dec.Decode(h)
-	if err != nil {
-		return fmt.Errorf("cannot decode info header: %s", err)
+	st := opt.StateFile
+	if st == nil {
+		return errors.New("no state here")
 	}
 
-	ndec := core.NewDecoder(dec)
+	nodes, err := st.Nodes()
+	if err != nil {
+		return err
+	}
+	defer nodes.Close()
 
 	// Cycle through all nodes
 	var size int64
 	var count int64
 
-	for {
-		n := core.Node{}
-		err := ndec.Decode(&n)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return fmt.Errorf("cannot decode node: %s", err)
-		}
+	var prefix string
+	if len(rargs) > 0 {
+		prefix = rargs[0]
+	}
+
+	for nodes.Next() {
+		n := nodes.Node()
 		if n.Mode.IsDir() {
 			continue
 		}
-		// fmt.Println(n) // children is not up to date here
+		if prefix != "" && !strings.HasPrefix(n.Path(), prefix) {
+			continue
+		}
+		fmt.Printf("\t%s\n", color.Green+n.Path()+color.Reset) // children is not up to date here
 		size = size + n.Size
 		count++
+	}
+	if err := nodes.Error(); err != nil {
+		return err
 	}
 
 	// Write some report on stdout

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
+	"sync"
 )
 
 // Node is an entry in the filetree. Either file or directory. A .hsnap file is
@@ -34,13 +35,21 @@ func (n *Node) Children() []*Node {
 	return n.children
 }
 
+var incrementID = struct {
+	value int
+	sync.Mutex
+}{}
+
 var IncrementID = 0
 
-// NewNode creates a Node given its FileInfo
+// NewNode creates a Node given its FileInfo, it is thread-safe
 func NewNode(info fs.FileInfo) *Node {
-	IncrementID++
+	incrementID.Lock()
+	defer incrementID.Unlock()
+	incrementID.value++
+
 	return &Node{
-		ID:   IncrementID,
+		ID:   incrementID.value,
 		Mode: info.Mode(),
 		Name: info.Name(),
 		Size: info.Size(),
@@ -48,7 +57,7 @@ func NewNode(info fs.FileInfo) *Node {
 }
 
 func (n Node) String() string {
-	return fmt.Sprintf("%d %s (in %d)", n.ID, n.Path(), n.ParentID)
+	return fmt.Sprintf("%d(%d) %s", n.ID, n.ParentID, n.Path())
 }
 
 // Path relative to the root Node

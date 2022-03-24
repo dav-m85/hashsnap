@@ -2,14 +2,12 @@ package cmd
 
 import (
 	"context"
-	"encoding/gob"
+	"errors"
 	"flag"
-	"fmt"
 	"os"
-	"time"
 
 	"github.com/dav-m85/hashsnap/core"
-	"github.com/google/uuid"
+	"github.com/dav-m85/hashsnap/state"
 	bar "github.com/schollz/progressbar/v3"
 )
 
@@ -19,17 +17,14 @@ type CreateFlags struct {
 
 var cf = new(CreateFlags)
 
-func Create() error {
+func Create(opt Options) error {
 	fl := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
 	fl.BoolVar(&cf.progress, "progress", false, "help message for flagname")
 	fl.Parse(os.Args[2:])
 
-	// target string, outfile core.Noder, progress bool
-
-	target, err := os.Getwd()
-	if err != nil {
-		return err
+	if opt.StateFile != nil {
+		return errors.New("already a hsnap directory or child")
 	}
 
 	// excludes := core.Exclusions{".git", ".DS_Store"}
@@ -42,34 +37,19 @@ func Create() error {
 		)
 	}
 
-	filename := ".hsnap"
-
-	if _, err := os.Stat(filename); err == nil {
-		return fmt.Errorf("%s already exists, aborting", filename)
-	}
-
-	f, err := os.Create(filename)
+	st := state.NewStateFileIn(opt.WD)
+	enc, close, err := st.Create()
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-
-	enc := gob.NewEncoder(f)
-
-	// Write info node
-	enc.Encode(core.Info{
-		Version:   1,
-		RootPath:  target,
-		CreatedAt: time.Now(),
-		Nonce:     uuid.New(),
-	})
+	defer close()
 
 	// Pipeline context... cancelling it cancels them all
 	ctx, cleanup := context.WithCancel(context.Background())
 	defer cleanup()
 
 	// ⛲️ Source by exploring all files
-	nodes, err := core.WalkFS(ctx, target, nil)
+	nodes, err := core.WalkFS(ctx, opt.WD, nil)
 	if err != nil {
 		return err
 	}
@@ -84,6 +64,8 @@ func Create() error {
 			return err
 		}
 	}
+
+	// TODO explains what happned !
 
 	return nil
 }

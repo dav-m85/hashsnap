@@ -1,15 +1,39 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
 	"github.com/dav-m85/hashsnap/cmd"
+	"github.com/dav-m85/hashsnap/state"
 )
 
-// A snapshot manipulator to ease deduplication across filesystems
 func main() {
-	args := os.Args[1:]
+	opt := cmd.Options{}
+	flag.StringVar(&opt.StateFilePath, "statefile", "", "Different state file")
+	flag.StringVar(&opt.WD, "wd", "", "Different working directory")
+	flag.Parse()
+
+	if opt.WD == "" {
+		wd, err := os.Getwd()
+		if err != nil {
+			panic(err)
+		}
+		opt.WD = wd
+	}
+
+	if opt.StateFilePath != "" {
+		opt.StateFile = state.NewStateFile(opt.StateFilePath)
+	} else {
+		st, err := state.StateIn(opt.WD)
+		if err != nil {
+			panic(err)
+		}
+		opt.StateFile = st
+	}
+
+	args := flag.Args()
 	if len(args) == 0 {
 		help()
 	}
@@ -18,7 +42,7 @@ func main() {
 	switch args[0] {
 
 	case "create":
-		err = cmd.Create()
+		err = cmd.Create(opt)
 
 	case "convert":
 		err = cmd.Convert()
@@ -27,10 +51,10 @@ func main() {
 		help()
 
 	case "info":
-		err = cmd.Info()
+		err = cmd.Info(opt, args[1:])
 
 	case "trim":
-		err = cmd.Trim()
+		err = cmd.Trim(opt)
 
 	default:
 		fmt.Printf("hsnap: '%s' is not a hsnap command. See 'hsnap help'.\n", args[0])
@@ -46,7 +70,7 @@ func main() {
 func help() {
 	fmt.Print(`usage: hsnap <command> [<args>]
 
-These are common Hsnap commands used in various situations:
+These are common hsnap commands used in various situations:
 
 create    Make a snapshot for current working directory
 info      Detail content of a snapshot
