@@ -56,6 +56,19 @@ func NewNode(info fs.FileInfo) *Node {
 	}
 }
 
+func NewNodeFromPath(path string) *Node {
+	if !filepath.IsAbs(path) {
+		panic(fmt.Errorf("wd should be absolute: %s", path))
+	}
+
+	info, err := lstat(path)
+	if err != nil {
+		panic(fmt.Errorf("Node creation failed: %s", err))
+	}
+
+	return NewNode(info)
+}
+
 func (n Node) String() string {
 	return fmt.Sprintf("%d(%d) %s", n.ID, n.ParentID, n.Path())
 }

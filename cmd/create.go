@@ -49,23 +49,38 @@ func Create(opt Options, args []string) error {
 	defer cleanup()
 
 	// ⛲️ Source by exploring all files
-	nodes, err := core.WalkFS(ctx, opt.WD, nil)
+	dirs, err := core.WalkFS(ctx, core.NoFiles, opt.WD, false, core.NewNodeFromPath(opt.WD))
 	if err != nil {
 		return err
 	}
 
-	// 🏭 Hash them all
-	nodes2 := core.Hasher(ctx, opt.WD, pbar, nodes)
+	dirtree := []*core.Node{}
 
 	// 🛁 Write hashes to hashfile
-	for x := range nodes2 {
+	for x := range dirs {
 		// fmt.Println(x)
+		dirtree = append(dirtree, x)
 		if err := enc.Encode(x); err != nil {
 			return err
 		}
 	}
 
-	// TODO explains what happned !
+	// ⛲️ Source by exploring all files
+	files, err := core.WalkFS(ctx, core.NoDirs, opt.WD, true, dirtree...)
+	if err != nil {
+		return err
+	}
+
+	// 🏭 Hash them all
+	files2 := core.Hasher(ctx, opt.WD, pbar, files)
+
+	// 🛁 Write hashes to hashfile
+	for x := range files2 {
+		// fmt.Println(x)
+		if err := enc.Encode(x); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

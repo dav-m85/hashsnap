@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -11,53 +12,40 @@ import (
 var lstat = os.Lstat
 
 // Skipper indicate a Node should be skipped by returning true
-type Skipper func(*Node) bool
+type Skipper func(fs.FileInfo) bool
 
-// DefaultSkipper ignores symlinks and zero-size files
-var DefaultSkipper = func(n *Node) bool {
-	return (!n.Mode.IsDir() && (!n.Mode.IsRegular() || n.Size == 0)) || n.Name == ".hsnap" /*state.STATE_NAME*/
+// DefaultSkipper
+var DefaultSkipper = func(fs.FileInfo) bool {
+	return false
 }
 
-// MakeNameSkipper extends DefaultSkipper to ignore some names
-func MakeNameSkipper(names []string) Skipper {
-	return func(n *Node) bool {
-		for _, x := range names {
-			if x == n.Name {
-				return true
-			}
-		}
-		return DefaultSkipper(n)
-	}
+var NoDirs = func(n fs.FileInfo) bool {
+	return (!n.IsDir() && (!n.Mode().IsRegular() || n.Size() == 0 || n.Name() == ".hsnap" /*state.STATE_NAME*/))
+}
+
+var NoFiles = func(n fs.FileInfo) bool {
+	return !n.IsDir()
 }
 
 // WalkFS walks a filetree in a breadth first manner
 // It generates a stream of *Nodes to be used.
 // Once the walker has explored all files, it closes the emitting channel.
 // Each node receives a unique increment id, starting at 1.
-func WalkFS(ctx context.Context, rpath string, skip Skipper) (<-chan *Node, error) {
+func WalkFS(ctx context.Context, skip Skipper, wd string, skipNodes bool, q ...*Node) (<-chan *Node, error) {
+	out := make(chan *Node)
+
+	skipUntil := len(q)
+
 	if skip == nil {
 		skip = DefaultSkipper
 	}
 
-	if !filepath.IsAbs(rpath) {
-		return nil, fmt.Errorf("Path should be absolute: %s", rpath)
+	if !filepath.IsAbs(wd) {
+		return nil, fmt.Errorf("wd should be absolute: %s", wd)
 	}
 
-	out := make(chan *Node)
-
 	go func() {
-		var q []*Node
-
 		defer close(out)
-
-		// Appending the root to the processing queue, in order to bootstrap
-		// the BFS routine below.
-		info, err := lstat(rpath)
-		if err != nil {
-			panic("Node creation failed: " + err.Error())
-		}
-		root := NewNode(info)
-		q = append(q, root)
 
 		// Actual BFS
 		for len(q) > 0 {
@@ -67,7 +55,7 @@ func WalkFS(ctx context.Context, rpath string, skip Skipper) (<-chan *Node, erro
 
 			// Walk deeper in directory
 			if node.Mode.IsDir() {
-				dpath := filepath.Join(rpath, node.Path())
+				dpath := filepath.Join(wd, node.Path())
 				names, err := readDirNames(dpath)
 				if err != nil {
 					log.Printf("Listing directory %s failed: %s", dpath, err)
@@ -79,11 +67,10 @@ func WalkFS(ctx context.Context, rpath string, skip Skipper) (<-chan *Node, erro
 					if err != nil {
 						log.Printf("Node creation failed: %s", err)
 					}
-					child := NewNode(info)
-
-					if skip != nil && skip(child) {
+					if skip != nil && skip(info) {
 						continue
 					}
+					child := NewNode(info)
 
 					node.Attach(child)
 
@@ -91,7 +78,11 @@ func WalkFS(ctx context.Context, rpath string, skip Skipper) (<-chan *Node, erro
 				}
 			}
 
-			out <- node
+			if skipUntil <= 0 || !skipNodes {
+				out <- node
+			} else {
+				skipUntil--
+			}
 		}
 	}()
 

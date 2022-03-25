@@ -58,7 +58,7 @@ func Info(opt Options, args []string) error {
 		count++
 	}
 	if err := nodes.Error(); err != nil {
-		return err
+		return fmt.Errorf("statefile %s nodes error: %w", st.Path, err)
 	}
 
 	// Write some report on stdout

@@ -17,7 +17,7 @@ func flatten(nodes [][]*Node) []*Node {
 	return res
 }
 
-var ni uint64 = 1
+var ni int = 1
 
 func n(name, content string, children ...[]*Node) []*Node {
 	n := &Node{
@@ -35,7 +35,7 @@ func n(name, content string, children ...[]*Node) []*Node {
 		io.WriteString(h, content)
 		copy(n.Hash[:], h.Sum(nil))
 		// n.Mode: default file
-		n.Size = uint64(len(content))
+		n.Size = int64(len(content))
 	} else {
 		if len(children) == 0 {
 			panic("cannot have no children and no content")
@@ -55,21 +55,15 @@ func n(name, content string, children ...[]*Node) []*Node {
 func TestAbs(t *testing.T) {
 	is := is.New(t)
 
-	a := &HsnapMem{
-		Nodes: n(
-			"/", "", // dir
-			n("a", "", // dir
-				n("c", "aze"),
-				n("d", "foo"),
-			),
-			n("b", "bar"),
-		),
-	}
-
-	t.Logf("%s\n", a)
-
 	h := make(HashGroup)
-	h.Load(a)
+	h.Add(n(
+		"/", "", // dir
+		n("a", "", // dir
+			n("c", "aze"),
+			n("d", "foo"),
+		),
+		n("b", "bar"),
+	))
 
 	// This one is their
 	_, ok := h[n("z", "aze")[0].Hash]

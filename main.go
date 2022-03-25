@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/dav-m85/hashsnap/cmd"
 	"github.com/dav-m85/hashsnap/state"
@@ -21,6 +22,12 @@ func main() {
 			panic(err)
 		}
 		opt.WD = wd
+	} else {
+		var err error
+		opt.WD, err = filepath.Abs(opt.WD)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	if opt.StateFilePath != "" {
@@ -42,7 +49,7 @@ func main() {
 	switch args[0] {
 
 	case "create":
-		err = cmd.Create(opt, os.Args[2:])
+		err = cmd.Create(opt, args[1:])
 
 	case "convert":
 		err = cmd.Convert()
@@ -54,7 +61,7 @@ func main() {
 		err = cmd.Info(opt, args[1:])
 
 	case "trim":
-		err = cmd.Trim(opt)
+		err = cmd.Trim(opt, args[1:])
 
 	default:
 		fmt.Printf("hsnap: '%s' is not a hsnap command. See 'hsnap help'.\n", args[0])
@@ -62,7 +69,7 @@ func main() {
 	}
 
 	if err != nil {
-		fmt.Printf("Error: %v", err)
+		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 }

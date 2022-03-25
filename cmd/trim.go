@@ -17,11 +17,11 @@ type TrimFlags struct {
 
 var tf = new(TrimFlags)
 
-func Trim(opt Options) error {
+func Trim(opt Options, args []string) error {
 	fl := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
 	fl.BoolVar(&tf.verbose, "verbose", false, "list all groups")
-	fl.Parse(os.Args[2:])
+	fl.Parse(args)
 
 	if len(fl.Args()) == 0 {
 		return fmt.Errorf("wrong usage")
@@ -47,7 +47,7 @@ func Trim(opt Options) error {
 		return err
 	}
 	if err := nodes.Error(); err != nil {
-		return err
+		return fmt.Errorf("statefile %s nodes error: %w", st.Path, err)
 	}
 
 	for _, w := range withs {
@@ -66,7 +66,7 @@ func Trim(opt Options) error {
 			return err
 		}
 		if err := nodes.Error(); err != nil {
-			return err
+			return fmt.Errorf("statefile %s nodes error: %w", ns.Path, err)
 		}
 	}
 
