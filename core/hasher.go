@@ -6,13 +6,14 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sync"
 
 	bar "github.com/schollz/progressbar/v3"
 )
 
-func Hasher(ctx context.Context, pbar *bar.ProgressBar, in <-chan *Node) <-chan *Node {
+func Hasher(ctx context.Context, wd string, pbar *bar.ProgressBar, in <-chan *Node) <-chan *Node {
 	out := make(chan *Node)
 	go func() {
 		defer close(out)
@@ -25,9 +26,9 @@ func Hasher(ctx context.Context, pbar *bar.ProgressBar, in <-chan *Node) <-chan 
 
 				for node := range in {
 					if !node.Mode.IsDir() {
-						err := computeHash(node, pbar)
+						err := computeHash(wd, node, pbar)
 						if err != nil {
-							log.Printf("Cannot hash %s: %s", node, err)
+							log.Printf("Cannot hash %s: %s", node.Path(), err)
 							continue
 						}
 					}
@@ -45,8 +46,8 @@ func Hasher(ctx context.Context, pbar *bar.ProgressBar, in <-chan *Node) <-chan 
 }
 
 // computeHash reads the file and computes the sha1 of it
-func computeHash(n *Node, pbar *bar.ProgressBar) error {
-	fd, err := os.Open(n.Path())
+func computeHash(wd string, n *Node, pbar *bar.ProgressBar) error {
+	fd, err := os.Open(filepath.Join(wd, n.Path()))
 	if err != nil {
 		return err
 	}

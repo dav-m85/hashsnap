@@ -17,11 +17,11 @@ type CreateFlags struct {
 
 var cf = new(CreateFlags)
 
-func Create(opt Options) error {
+func Create(opt Options, args []string) error {
 	fl := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
 	fl.BoolVar(&cf.progress, "progress", false, "help message for flagname")
-	fl.Parse(os.Args[2:])
+	fl.Parse(args)
 
 	if opt.StateFile != nil {
 		return errors.New("already a hsnap directory or child")
@@ -55,7 +55,7 @@ func Create(opt Options) error {
 	}
 
 	// 🏭 Hash them all
-	nodes2 := core.Hasher(ctx, pbar, nodes)
+	nodes2 := core.Hasher(ctx, opt.WD, pbar, nodes)
 
 	// 🛁 Write hashes to hashfile
 	for x := range nodes2 {

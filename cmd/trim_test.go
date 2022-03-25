@@ -1,8 +1,7 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
+	"bytes"
 	"testing"
 
 	"github.com/dav-m85/hashsnap/test"
@@ -27,14 +26,20 @@ import (
 // 	os.Exit(code)
 // }
 
-func TestTrim(t *testing.T) {
+func TestCreate(t *testing.T) {
 	tmp, teardown := test.Setup(t)
 	defer teardown()
 
-	fmt.Println(tmp)
-	wd, err := os.Getwd()
-	t.Log(wd, err)
 	is := is.New(t)
-	is.NoErr(nil)
-	fmt.Print("Yo")
+
+	Output = &bytes.Buffer{}
+
+	var err error
+	err = Create(NewOptions(tmp), []string{})
+	is.NoErr(err)
+
+	err = Info(NewOptions(tmp), []string{})
+	is.NoErr(err)
+
+	t.Log(Output)
 }

@@ -49,7 +49,7 @@ func (nd *NodeDecoder) Decode(n *Node) error {
 	var parent *Node
 	var ok bool
 	if parent, ok = nd.nrm[n.ParentID]; !ok {
-		return fmt.Errorf("parent has not been decoded yet")
+		return fmt.Errorf("parent of %s has not been decoded yet", n)
 	}
 	parent.Attach(n)
 

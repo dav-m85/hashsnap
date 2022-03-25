@@ -15,7 +15,7 @@ type Skipper func(*Node) bool
 
 // DefaultSkipper ignores symlinks and zero-size files
 var DefaultSkipper = func(n *Node) bool {
-	return !n.Mode.IsDir() && (!n.Mode.IsRegular() || n.Size == 0)
+	return (!n.Mode.IsDir() && (!n.Mode.IsRegular() || n.Size == 0)) || n.Name == ".hsnap" /*state.STATE_NAME*/
 }
 
 // MakeNameSkipper extends DefaultSkipper to ignore some names

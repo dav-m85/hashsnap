@@ -42,7 +42,7 @@ func main() {
 	switch args[0] {
 
 	case "create":
-		err = cmd.Create(opt)
+		err = cmd.Create(opt, os.Args[2:])
 
 	case "convert":
 		err = cmd.Convert()

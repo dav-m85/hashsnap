@@ -53,7 +53,7 @@ func Info(opt Options, args []string) error {
 		if prefix != "" && !strings.HasPrefix(n.Path(), prefix) {
 			continue
 		}
-		fmt.Printf("\t%s\n", color.Green+n.Path()+color.Reset) // children is not up to date here
+		fmt.Fprintf(Output, "\t%s\n", color.Green+n.Path()+color.Reset) // children is not up to date here
 		size = size + n.Size
 		count++
 	}
@@ -62,6 +62,6 @@ func Info(opt Options, args []string) error {
 	}
 
 	// Write some report on stdout
-	fmt.Printf("Totalling %s and %d files\n", core.ByteSize(size), count)
+	fmt.Fprintf(Output, "Totalling %s and %d files\n", core.ByteSize(size), count)
 	return nil
 }
