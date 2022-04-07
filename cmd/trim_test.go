@@ -76,9 +76,8 @@ func TestTrim(t *testing.T) {
 	is.NoErr(Create(NewOptions(tmp+"/dir1"), []string{}))
 
 	is.NoErr(Create(NewOptions(tmp+"/dir1_copy"), []string{}))
-	is.NoErr(Info(NewOptions(tmp+"/dir1"), []string{}))
 
-	is.NoErr(Trim(NewOptions(tmp+"/dir1_copy"), []string{tmp + "/dir1/.hsnap"}))
+	is.NoErr(Trim(NewOptions(tmp+"/dir1"), []string{tmp + "/dir1_copy/.hsnap"}))
 
 	t.Log(Output)
 }
