@@ -50,8 +50,7 @@ func WalkFS(ctx context.Context, skip Skipper, wd string, skipNodes bool, q ...*
 		// Actual BFS
 		for len(q) > 0 {
 			// Shift first node
-			node := q[0]
-			q = q[1:]
+			node, q := q[0], q[1:]
 
 			// Walk deeper in directory
 			if node.Mode.IsDir() {
