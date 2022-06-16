@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/dav-m85/hashsnap/cmd"
+	"github.com/dav-m85/hashsnap/dedup"
 	"github.com/dav-m85/hashsnap/state"
 	"github.com/dav-m85/hashsnap/trim"
 	"github.com/google/uuid"
@@ -21,6 +22,7 @@ var (
 	infoCmd   = flag.NewFlagSet("info", flag.ExitOnError)
 	helpCmd   = flag.NewFlagSet("help", flag.ExitOnError)
 	trimCmd   = flag.NewFlagSet("trim", flag.ExitOnError)
+	dedupCmd  = flag.NewFlagSet("dedup", flag.ExitOnError)
 )
 
 var subcommands = map[string]*flag.FlagSet{
@@ -28,6 +30,7 @@ var subcommands = map[string]*flag.FlagSet{
 	helpCmd.Name():   helpCmd,
 	infoCmd.Name():   infoCmd,
 	trimCmd.Name():   trimCmd,
+	dedupCmd.Name():  dedupCmd,
 }
 
 func setupCommonFlags() {
@@ -100,6 +103,9 @@ main:
 	case infoCmd.Name():
 		err = cmd.Info(opt)
 
+	case dedupCmd.Name():
+		err = dedup.Dedup(opt.State, verbose, cm.Args()...)
+
 	case trimCmd.Name():
 		var withsNonce []uuid.UUID
 		err = opt.State.ReadInfo()
@@ -153,7 +159,8 @@ These are common hsnap commands used in various situations:
 
 create    Make a snapshot for current working directory
 info      Detail content of a snapshot
-trim      Deduplicate current working directory using snapshots
+dedup     Good old deduplication, with man guards
+trim      Remove local files that are already present in provided snapshots
 help      This help message
 `)
 	os.Exit(0)

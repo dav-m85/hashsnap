@@ -3,6 +3,8 @@ package core
 import (
 	"crypto/sha1"
 	"fmt"
+	"io"
+	"os"
 	"sort"
 )
 
@@ -74,4 +76,24 @@ func (r HashGroup) Intersect(ns []*Node) error {
 		}
 	}
 	return nil
+}
+
+var output io.ReadWriter = os.Stdout
+
+func (r HashGroup) PrintDetails(verbose bool) {
+	var count int64
+	var waste int64
+
+	for _, g := range r {
+		if len(g.Nodes) < 2 {
+			continue
+		}
+		if verbose {
+			fmt.Fprintln(output, g)
+		}
+		count++
+		waste = waste + int64(g.WastedSize())
+	}
+
+	fmt.Fprintf(output, "%d duplicated groups, totalling %s wasted space\n", count, ByteSize(waste))
 }
