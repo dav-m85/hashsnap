@@ -22,20 +22,20 @@ type StateFile struct {
 
 const STATE_NAME = ".hsnap"
 
-// NewStateFileIn a directory
-func NewStateFileIn(dir string) *StateFile {
-	return NewStateFile(filepath.Join(dir, STATE_NAME))
+// NewIn a directory
+func NewIn(dir string) *StateFile {
+	return New(filepath.Join(dir, STATE_NAME))
 }
 
-// NewStateFile at specified statepath
-func NewStateFile(statepath string) *StateFile {
+// New at specified statepath
+func New(statepath string) *StateFile {
 	return &StateFile{
 		Path: statepath,
 	}
 }
 
-// StateIn traverses dir ancestors looking for a StateFile.
-func StateIn(dir string) (*StateFile, error) {
+// LookupFrom traverses dir ancestors looking for a StateFile.
+func LookupFrom(dir string) (*StateFile, error) {
 	if !path.IsAbs(dir) {
 		return nil, fmt.Errorf("statepath %s is not absolute", dir)
 	}
@@ -44,7 +44,7 @@ func StateIn(dir string) (*StateFile, error) {
 		_, err := os.Stat(fp)
 		if err == nil {
 			// found
-			return NewStateFile(fp), nil
+			return New(fp), nil
 		}
 		if os.IsNotExist(err) {
 			nd := path.Dir(dir)

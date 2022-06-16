@@ -5,18 +5,18 @@ import "github.com/dav-m85/hashsnap/state"
 // Options for running hsnap, set by flags
 type Options struct {
 	StateFilePath string
-	StateFile     *state.StateFile
+	State         *state.StateFile
 	WD            string
 }
 
 func NewOptions(wd string) (opt Options) {
 	opt.WD = wd
 
-	st, err := state.StateIn(opt.WD)
+	st, err := state.LookupFrom(opt.WD)
 	if err != nil {
 		panic(err)
 	}
-	opt.StateFile = st
+	opt.State = st
 
 	return
 }

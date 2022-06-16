@@ -3,41 +3,18 @@ package cmd
 import (
 	"context"
 	"errors"
-	"flag"
-	"os"
 
 	"github.com/dav-m85/hashsnap/core"
 	"github.com/dav-m85/hashsnap/state"
 	bar "github.com/schollz/progressbar/v3"
 )
 
-type CreateFlags struct {
-	progress bool
-}
-
-var cf = new(CreateFlags)
-
-func Create(opt Options, args []string) error {
-	fl := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-
-	fl.BoolVar(&cf.progress, "progress", false, "help message for flagname")
-	fl.Parse(args)
-
-	if opt.StateFile != nil {
+func Create(opt Options, pbar *bar.ProgressBar) error {
+	if opt.State != nil {
 		return errors.New("already a hsnap directory or child")
 	}
 
-	// excludes := core.Exclusions{".git", ".DS_Store"}
-
-	var pbar *bar.ProgressBar
-	if cf.progress {
-		pbar = bar.DefaultBytes(
-			-1,
-			"Hashing",
-		)
-	}
-
-	st := state.NewStateFileIn(opt.WD)
+	st := state.NewIn(opt.WD)
 	enc, close, err := st.Create()
 	if err != nil {
 		return err
@@ -48,7 +25,7 @@ func Create(opt Options, args []string) error {
 	ctx, cleanup := context.WithCancel(context.Background())
 	defer cleanup()
 
-	// ⛲️ Source by exploring all files
+	// ⛲️ Source by exploring all dirs
 	dirs, err := core.WalkFS(ctx, core.NoFiles, opt.WD, false, core.NewNodeFromPath(opt.WD))
 	if err != nil {
 		return err

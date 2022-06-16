@@ -2,9 +2,7 @@ package cmd
 
 import (
 	"errors"
-	"flag"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/dav-m85/hashsnap/core"
@@ -18,14 +16,8 @@ var ifl = new(InfoFlags)
 
 // Info opens an hsnap, read its info header and counts how many nodes it has
 // it does not check for sanity (like child has a valid parent and so on)
-func Info(opt Options, args []string) error {
-	fl := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-
-	// fl.StringVar(&ifl.input, "input", ".hsnap", "help message for flagname")
-	fl.Parse(args)
-	rargs := fl.Args()
-
-	st := opt.StateFile
+func Info(opt Options) error {
+	st := opt.State
 	if st == nil {
 		return errors.New("no state here")
 	}
@@ -41,9 +33,6 @@ func Info(opt Options, args []string) error {
 	var count int64
 
 	var prefix string
-	if len(rargs) > 0 {
-		prefix = rargs[0]
-	}
 
 	for nodes.Next() {
 		n := nodes.Node()

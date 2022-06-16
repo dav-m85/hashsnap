@@ -40,8 +40,6 @@ var incrementID = struct {
 	sync.Mutex
 }{}
 
-var IncrementID = 0
-
 // NewNode creates a Node given its FileInfo, it is thread-safe
 func NewNode(info fs.FileInfo) *Node {
 	incrementID.Lock()
@@ -74,11 +72,7 @@ func (n Node) String() string {
 }
 
 // Path relative to the root Node
-// TODO cache path result !
 func (n *Node) Path() string {
-	// if n.path != "" {
-	// 	return n.path
-	// }
 	if n.parent == nil {
 		return ""
 	}

@@ -16,6 +16,8 @@ type NodeIterator struct {
 	ndec *core.NodeDecoder
 	err  error
 	n    *core.Node
+	pos  int
+	path string
 }
 
 // Node currently being decoded
@@ -33,6 +35,7 @@ func (ni *NodeIterator) Close() error {
 
 // Error returned after a call to Next if any
 func (ni *NodeIterator) Error() error {
+	// fmt.Errorf("state %s nodes error: %w", st.Path, err)
 	return ni.err
 }
 
@@ -45,10 +48,11 @@ func (ni *NodeIterator) Next() bool {
 		return false
 	}
 	if err != nil {
-		ni.err = fmt.Errorf("cannot decode node: %s", err)
+		ni.err = fmt.Errorf("cannot decode node at pos %d in %s: %s", ni.pos, ni.path, err)
 		return false
 	}
 	ni.n = &n
+	ni.pos++
 	return true
 }
 
@@ -72,7 +76,27 @@ func (sf *StateFile) Nodes() (*NodeIterator, error) {
 	return &NodeIterator{
 		file: f,
 		ndec: ndec,
+		path: sf.Path,
 	}, nil
+}
+
+// Nodes spawns a NodeIterator for current StateFile
+func (sf *StateFile) ReadInfo() error {
+	f, err := os.Open(sf.Path)
+	if err != nil {
+		return fmt.Errorf("cannot open file: %s", err)
+	}
+	defer f.Close()
+	dec := gob.NewDecoder(f)
+
+	// Read the info header
+	err = dec.Decode(&sf.Info)
+	if err != nil {
+		f.Close()
+		return fmt.Errorf("cannot decode info header: %s", err)
+	}
+
+	return nil
 }
 
 func ReadAll(nodes *NodeIterator) []*core.Node {

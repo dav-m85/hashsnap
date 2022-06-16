@@ -3,18 +3,58 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 
 	"github.com/dav-m85/hashsnap/cmd"
 	"github.com/dav-m85/hashsnap/state"
+	"github.com/dav-m85/hashsnap/trim"
+	"github.com/google/uuid"
+	bar "github.com/schollz/progressbar/v3"
 )
 
+var (
+	opt cmd.Options
+
+	createCmd = flag.NewFlagSet("create", flag.ExitOnError)
+	infoCmd   = flag.NewFlagSet("info", flag.ExitOnError)
+	helpCmd   = flag.NewFlagSet("help", flag.ExitOnError)
+	trimCmd   = flag.NewFlagSet("trim", flag.ExitOnError)
+)
+
+var subcommands = map[string]*flag.FlagSet{
+	createCmd.Name(): createCmd,
+	helpCmd.Name():   helpCmd,
+	infoCmd.Name():   infoCmd,
+	trimCmd.Name():   trimCmd,
+}
+
+func setupCommonFlags() {
+	for _, fs := range subcommands {
+		fs.StringVar(&opt.StateFilePath, "statefile", "", "Use a different state file")
+		fs.StringVar(&opt.WD, "wd", "", "Use a different working directory")
+	}
+}
+
+var verbose bool
+
 func main() {
-	opt := cmd.Options{}
-	flag.StringVar(&opt.StateFilePath, "statefile", "", "Different state file")
-	flag.StringVar(&opt.WD, "wd", "", "Different working directory")
-	flag.Parse()
+	setupCommonFlags()
+
+	if len(os.Args) <= 1 {
+		help()
+	}
+
+	createCmd.BoolVar(&verbose, "verbose", false, "list all groups")
+	trimCmd.BoolVar(&verbose, "verbose", false, "list all groups")
+
+	cm := subcommands[os.Args[1]]
+	if cm == nil {
+		log.Fatalf("Unknown subcommand '%s', see help for more details.", os.Args[1])
+	}
+
+	cm.Parse(os.Args[2:])
 
 	if opt.WD == "" {
 		wd, err := os.Getwd()
@@ -31,41 +71,72 @@ func main() {
 	}
 
 	if opt.StateFilePath != "" {
-		opt.StateFile = state.NewStateFile(opt.StateFilePath)
+		opt.State = state.New(opt.StateFilePath)
 	} else {
-		st, err := state.StateIn(opt.WD)
+		st, err := state.LookupFrom(opt.WD)
 		if err != nil {
 			panic(err)
 		}
-		opt.StateFile = st
-	}
-
-	args := flag.Args()
-	if len(args) == 0 {
-		help()
+		opt.State = st
 	}
 
 	var err error
-	switch args[0] {
+main:
+	switch cm.Name() {
 
-	case "create":
-		err = cmd.Create(opt, args[1:])
+	case createCmd.Name():
+		var pbar *bar.ProgressBar
+		if verbose {
+			pbar = bar.DefaultBytes(
+				-1,
+				"Hashing",
+			)
+		}
+		err = cmd.Create(opt, pbar)
 
-	case "convert":
-		err = cmd.Convert()
-
-	case "help":
+	case helpCmd.Name():
 		help()
 
-	case "info":
-		err = cmd.Info(opt, args[1:])
+	// case "convert":
+	// 	err = cmd.Convert()
 
-	case "trim":
-		err = cmd.Trim(opt, args[1:])
+	case infoCmd.Name():
+		err = cmd.Info(opt)
+
+	case trimCmd.Name():
+		var withsNonce []uuid.UUID
+		err = opt.State.ReadInfo()
+		if err != nil {
+			break
+		}
+		withsNonce = append(withsNonce, opt.State.Info.Nonce)
+
+		var withs []trim.State
+		if len(cm.Args()) == 0 {
+			err = fmt.Errorf("wrong usage")
+			break
+		}
+
+		for _, wpath := range cm.Args() {
+			w := state.New(wpath)
+			err = w.ReadInfo()
+			if err != nil {
+				break main
+			}
+			for _, x := range withsNonce {
+				if x == w.Info.Nonce {
+					err = fmt.Errorf("file has already been imported once")
+					break main
+				}
+			}
+			withsNonce = append(withsNonce, w.Info.Nonce)
+			withs = append(withs, w)
+		}
+
+		err = trim.Trim(opt.State, verbose, withs)
 
 	default:
-		fmt.Printf("hsnap: '%s' is not a hsnap command. See 'hsnap help'.\n", args[0])
-		return
+		log.Fatalf("Subcommand '%s' is not implemented!", cm.Name())
 	}
 
 	if err != nil {
@@ -80,8 +151,8 @@ func help() {
 These are common hsnap commands used in various situations:
 
 create    Make a snapshot for current working directory
-info      Detail content of a snapshot
-trim      Deduplicate current working directory using snapshots
+// info      Detail content of a snapshot
+// trim      Deduplicate current working directory using snapshots
 help      This help message
 `)
 	os.Exit(0)
