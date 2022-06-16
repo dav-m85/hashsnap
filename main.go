@@ -97,9 +97,6 @@ main:
 	case helpCmd.Name():
 		help()
 
-	// case "convert":
-	// 	err = cmd.Convert()
-
 	case infoCmd.Name():
 		err = cmd.Info(opt)
 
@@ -130,10 +127,14 @@ main:
 				}
 			}
 			withsNonce = append(withsNonce, w.Info.Nonce)
-			withs = append(withs, w)
+			var ts trim.State = w
+			withs = append(withs, ts)
 		}
 
-		err = trim.Trim(opt.State, verbose, withs)
+		err = trim.Trim(opt.State, verbose, withs...)
+
+	// case "convert":
+	// 	err = cmd.Convert()
 
 	default:
 		log.Fatalf("Subcommand '%s' is not implemented!", cm.Name())
@@ -151,8 +152,8 @@ func help() {
 These are common hsnap commands used in various situations:
 
 create    Make a snapshot for current working directory
-// info      Detail content of a snapshot
-// trim      Deduplicate current working directory using snapshots
+info      Detail content of a snapshot
+trim      Deduplicate current working directory using snapshots
 help      This help message
 `)
 	os.Exit(0)

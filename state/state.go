@@ -15,6 +15,8 @@ import (
 // package state retrieves current hsnap file, in current
 // or parent dirs
 
+// StateFile is a file holding a bunch of nodes. It is decoded using
+// an iterator
 type StateFile struct {
 	Path string
 	Info core.Info
@@ -83,4 +85,47 @@ func (sf *StateFile) Create() (*gob.Encoder, func() error, error) {
 	}
 
 	return enc, f.Close, err
+}
+
+// Nodes spawns a NodeIterator for current StateFile
+func (sf *StateFile) Nodes() (Iterator, error) {
+	f, err := os.Open(sf.Path)
+	if err != nil {
+		return nil, fmt.Errorf("cannot open file: %s", err)
+	}
+	dec := gob.NewDecoder(f)
+
+	// Read the info header
+	err = dec.Decode(&sf.Info)
+	if err != nil {
+		f.Close()
+		return nil, fmt.Errorf("cannot decode info header: %s", err)
+	}
+
+	ndec := core.NewDecoder(dec)
+
+	return &FileIterator{
+		file: f,
+		ndec: ndec,
+		path: sf.Path,
+	}, nil
+}
+
+// Nodes spawns a NodeIterator for current StateFile
+func (sf *StateFile) ReadInfo() error {
+	f, err := os.Open(sf.Path)
+	if err != nil {
+		return fmt.Errorf("cannot open file: %s", err)
+	}
+	defer f.Close()
+	dec := gob.NewDecoder(f)
+
+	// Read the info header
+	err = dec.Decode(&sf.Info)
+	if err != nil {
+		f.Close()
+		return fmt.Errorf("cannot decode info header: %s", err)
+	}
+
+	return nil
 }

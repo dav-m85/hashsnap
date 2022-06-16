@@ -2,6 +2,7 @@ package trim
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/dav-m85/hashsnap/core"
@@ -9,12 +10,12 @@ import (
 )
 
 type State interface {
-	Nodes() (*state.NodeIterator, error)
+	Nodes() (state.Iterator, error)
 }
 
-var output = os.Stdout
+var output io.ReadWriter = os.Stdout
 
-func Trim(st State, verbose bool, withs []State) error {
+func Trim(st State, verbose bool, withs ...State) error {
 	nodes, err := st.Nodes()
 	if err != nil {
 		return err
