@@ -4,7 +4,6 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"io/fs"
-	"path/filepath"
 	"sync"
 )
 
@@ -20,19 +19,11 @@ type Node struct {
 	Hash [sha1.Size]byte // hash.Hash // sha1.New()
 
 	ID, ParentID int
-
-	parent   *Node
-	children []*Node
 }
 
-func (n *Node) Parent() *Node {
-	return n.parent
-}
-
-// Children of Node. Beware, while decoding, this field could be not entirely
-// filled until whole file has been decoded.
-func (n *Node) Children() []*Node {
-	return n.children
+type NodeP struct {
+	Node *Node
+	Path string
 }
 
 var incrementID = struct {
@@ -40,57 +31,20 @@ var incrementID = struct {
 	sync.Mutex
 }{}
 
-// NewNode creates a Node given its FileInfo, it is thread-safe
-func NewNode(info fs.FileInfo) *Node {
+func Allocate() int {
 	incrementID.Lock()
 	defer incrementID.Unlock()
 	incrementID.value++
-
-	return &Node{
-		ID:   incrementID.value,
-		Mode: info.Mode(),
-		Name: info.Name(),
-		Size: info.Size(),
-	}
+	return incrementID.value
 }
 
-func NewNodeFromPath(path string) *Node {
-	if !filepath.IsAbs(path) {
-		panic(fmt.Errorf("wd should be absolute: %s", path))
-	}
-
-	info, err := lstat(path)
-	if err != nil {
-		panic(fmt.Errorf("Node creation failed: %s", err))
-	}
-
-	return NewNode(info)
+func Reset() int {
+	incrementID.Lock()
+	defer incrementID.Unlock()
+	incrementID.value = 0
+	return incrementID.value
 }
 
 func (n Node) String() string {
-	return fmt.Sprintf("%d(%d) %s", n.ID, n.ParentID, n.Path())
-}
-
-// Path relative to the root Node
-func (n *Node) Path() string {
-	if n.parent == nil {
-		return ""
-	}
-	pp := n.parent.Path()
-	if pp == "" {
-		return n.Name
-	}
-	return filepath.Join(n.parent.Path(), n.Name)
-}
-
-// Attach nodes as children
-func (n *Node) Attach(children ...*Node) {
-	n.children = append(n.children, children...)
-	for _, c := range children {
-		if c.parent != nil {
-			panic("parent already declared")
-		}
-		c.parent = n
-		c.ParentID = n.ID // Useful for decoding
-	}
+	return fmt.Sprintf("%d(%d) %s", n.ID, n.ParentID, n.Name)
 }

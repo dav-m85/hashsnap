@@ -55,9 +55,6 @@ et swap file pour l'dit in place des fichiers hsnap
 - [mathieuancelin/duplicates](https://github.com/mathieuancelin/duplicates/blob/master/duplicates.go)
 - [SeeSpotRun gist](https://gist.github.com/SeeSpotRun/456b88424841d7ae735f)
 
-
-
-
 ## Principle
 Say you have two disks, Sanston and Kingdisk, with following files:
 

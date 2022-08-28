@@ -19,9 +19,9 @@ type ByPath []*Node
 
 func (a ByPath) Len() int { return len(a) }
 func (a ByPath) Less(i, j int) bool {
-	x := a[i].Path()
-	y := a[j].Path()
-	return x < y
+	// x := a[i].Path()
+	// y := a[j].Path()
+	return false //x < y
 }
 func (a ByPath) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 

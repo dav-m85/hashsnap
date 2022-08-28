@@ -6,14 +6,12 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 	"runtime"
 	"sync"
-
-	bar "github.com/schollz/progressbar/v3"
 )
 
-func Hasher(ctx context.Context, wd string, pbar *bar.ProgressBar, in <-chan *Node) <-chan *Node {
+// Hasher... spy allows to follow hashing speed by having every hashed byte copied to it
+func Hasher(ctx context.Context, wd string, spy io.Writer, in <-chan NodeP) <-chan *Node {
 	out := make(chan *Node)
 	go func() {
 		defer close(out)
@@ -21,19 +19,20 @@ func Hasher(ctx context.Context, wd string, pbar *bar.ProgressBar, in <-chan *No
 		wg := &sync.WaitGroup{}
 		for w := 0; w < runtime.NumCPU(); w++ {
 			wg.Add(1)
+
 			go func() {
 				defer wg.Done()
 
-				for node := range in {
-					if !node.Mode.IsDir() {
-						err := computeHash(wd, node, pbar)
+				for np := range in {
+					if !np.Node.Mode.IsDir() {
+						err := computeHash(np, spy)
 						if err != nil {
-							log.Printf("Cannot hash %s: %s", node.Path(), err)
+							log.Printf("Cannot hash %s: %s", np.Path, err)
 							continue
 						}
 					}
 					select {
-					case out <- node:
+					case out <- np.Node:
 					case <-ctx.Done():
 						return
 					}
@@ -46,23 +45,19 @@ func Hasher(ctx context.Context, wd string, pbar *bar.ProgressBar, in <-chan *No
 }
 
 // computeHash reads the file and computes the sha1 of it
-func computeHash(wd string, n *Node, pbar *bar.ProgressBar) error {
-	fd, err := os.Open(filepath.Join(wd, n.Path()))
+func computeHash(n NodeP, spy io.Writer) error {
+	fd, err := os.Open(n.Path)
 	if err != nil {
 		return err
 	}
 	h := sha1.New()
 	defer fd.Close()
 
-	var writeTo io.Writer = h
-	if pbar != nil {
-		writeTo = io.MultiWriter(h, pbar)
-	}
-	if _, err = io.Copy(writeTo, fd); err != nil {
+	if _, err = io.Copy(io.MultiWriter(h, spy), fd); err != nil {
 		return err
 	}
 
-	copy(n.Hash[:], h.Sum(nil)) // [sha1.Size]byte()
+	copy(n.Node.Hash[:], h.Sum(nil)) // [sha1.Size]byte()
 
 	return nil
 }

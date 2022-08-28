@@ -19,49 +19,56 @@ var DefaultSkipper = func(fs.FileInfo) bool {
 	return false
 }
 
-var NoDirs = func(n fs.FileInfo) bool {
-	return (!n.IsDir() && (!n.Mode().IsRegular() || n.Size() == 0 || n.Name() == ".hsnap" /*state.STATE_NAME*/))
-}
-
-var NoFiles = func(n fs.FileInfo) bool {
-	return !n.IsDir()
-}
-
 // WalkFS walks a filetree in a breadth first manner
 // It generates a stream of *Nodes to be used.
 // Once the walker has explored all files, it closes the emitting channel.
 // Each node receives a unique increment id, starting at 1.
-func WalkFS(ctx context.Context, skip Skipper, wd string, skipNodes bool, q ...*Node) (<-chan *Node, error) {
-	out := make(chan *Node)
-
-	skipUntil := len(q)
+func WalkFS(ctx context.Context, skip Skipper, root string) (<-chan NodeP, error) {
+	out := make(chan NodeP)
 
 	if skip == nil {
 		skip = DefaultSkipper
 	}
 
-	if !filepath.IsAbs(wd) {
-		return nil, fmt.Errorf("wd should be absolute: %s", wd)
+	if !filepath.IsAbs(root) {
+		return nil, fmt.Errorf("wd should be absolute: %s", root)
 	}
 
 	go func() {
 		defer close(out)
 
+		info, err := lstat(root)
+		if err != nil {
+			log.Printf("Root node creation failed on %s: %s", root, err)
+			return
+		}
+
+		rootNode := &Node{
+			ID:   Reset(),
+			Mode: info.Mode(),
+			Name: info.Name(),
+			Size: info.Size(),
+		}
+
+		q := []NodeP{{
+			rootNode, root,
+		}}
+		var np NodeP
+
 		// Actual BFS
 		for len(q) > 0 {
 			// Shift first node
-			node, q := q[0], q[1:]
+			np, q = q[0], q[1:]
 
 			// Walk deeper in directory
-			if node.Mode.IsDir() {
-				dpath := filepath.Join(wd, node.Path())
-				names, err := readDirNames(dpath)
+			if np.Node.Mode.IsDir() {
+				names, err := readDirNames(np.Path)
 				if err != nil {
-					log.Printf("Listing directory %s failed: %s", dpath, err)
+					log.Printf("Listing directory %s failed: %s", np.Path, err)
 					continue
 				}
 				for _, name := range names {
-					cpath := filepath.Join(dpath, name)
+					cpath := filepath.Join(np.Path, name)
 					info, err := lstat(cpath)
 					if err != nil {
 						log.Printf("Node creation failed: %s", err)
@@ -69,19 +76,19 @@ func WalkFS(ctx context.Context, skip Skipper, wd string, skipNodes bool, q ...*
 					if skip != nil && skip(info) {
 						continue
 					}
-					child := NewNode(info)
+					child := &Node{
+						ID:       Allocate(),
+						ParentID: np.Node.ID,
+						Mode:     info.Mode(),
+						Name:     info.Name(),
+						Size:     info.Size(),
+					}
 
-					node.Attach(child)
-
-					q = append(q, child)
+					q = append(q, NodeP{child, cpath})
 				}
 			}
 
-			if skipUntil <= 0 || !skipNodes {
-				out <- node
-			} else {
-				skipUntil--
-			}
+			out <- np
 		}
 	}()
 
