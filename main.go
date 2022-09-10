@@ -140,7 +140,7 @@ main:
 			}
 			for _, x := range withsNonce {
 				if x == i.Nonce {
-					err = fmt.Errorf("file has already been imported once")
+					err = fmt.Errorf("%s is already in the trim set", wpath)
 					break main
 				}
 			}
@@ -277,12 +277,8 @@ func info() error {
 				continue
 			}
 
-			rp, rperr := t.RelPath(n)
-			if rperr != nil {
-				fmt.Fprintf(output, "\t%s %s (%s)\n", color.Green+rp+color.Reset, core.ByteSize(n.Size), rperr) // children is not up to date here
-			} else {
-				fmt.Fprintf(output, "\t%s %s\n", color.Green+rp+color.Reset, core.ByteSize(n.Size)) // children is not up to date here
-			}
+			fmt.Fprintf(output, "\t%s %s\n", color.Green+t.RelPath(n)+color.Reset, core.ByteSize(n.Size)) // children is not up to date here
+
 			size = size + n.Size
 			count++
 		}
@@ -380,7 +376,7 @@ func trim(withs ...string) error {
 			continue
 		}
 		if verbose {
-			fmt.Fprintln(output, g)
+			fmt.Fprintln(output, g.String(cur))
 		}
 		count++
 		waste = waste + int64(g.WastedSize())

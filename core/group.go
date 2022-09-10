@@ -25,11 +25,15 @@ func (a ByPath) Less(i, j int) bool {
 }
 func (a ByPath) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 
-func (g Group) String() string {
+func (g Group) String(current *Tree) string {
 	s := fmt.Sprintf("%d nodes (save %s)\n", len(g.Nodes), g.WastedSize())
 	sort.Sort(ByPath(g.Nodes))
 	for _, n := range g.Nodes {
-		s = s + fmt.Sprintf("\t%s\n", n)
+		if n.tree == current {
+			s = s + fmt.Sprintf("\tC %s [%s]\n", n, n.tree.RelPath(n))
+		} else {
+			s = s + fmt.Sprintf("\td %s\n", n)
+		}
 	}
 	return s
 }

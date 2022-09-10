@@ -44,14 +44,14 @@ func (t *Tree) ReadIterator(it Iterator) error {
 	return it.Error()
 }
 
-func (t *Tree) RelPath(n *Node) (path string, err error) {
-	on := n
+func (t *Tree) RelPath(n *Node) (path string) {
+	// on := n
 	for n.ID > 0 {
 		path = filepath.Join(n.Name, path)
 		var ok bool
 		if n, ok = t.nodes[n.ParentID]; !ok {
-			err = fmt.Errorf("cannot resolve full path for %s, missing parent for %s", on, n)
-			return
+			// err = fmt.Errorf("cannot resolve full path for %s, missing parent for %s", on, n)
+			return ""
 		}
 	}
 	return
