@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/dav-m85/hashsnap/core"
@@ -18,6 +19,7 @@ import (
 )
 
 var wd, spath string
+var delete bool
 
 // st, err := state.LookupFrom(opt.WD)
 // State         *state.StateFile
@@ -73,6 +75,7 @@ func main() {
 	createCmd.BoolVar(&verbose, "verbose", false, "displays hashing speed")
 	infoCmd.BoolVar(&verbose, "verbose", false, "enumerates all files (high-mem)")
 	trimCmd.BoolVar(&verbose, "verbose", false, "list all groups")
+	trimCmd.BoolVar(&delete, "delete", false, "really deletes stuff")
 
 	cm := subcommands[os.Args[1]]
 	if cm == nil {
@@ -148,7 +151,7 @@ main:
 			withs = append(withs, wpath)
 		}
 
-		err = trim(withs...)
+		err = trim(delete, withs...)
 
 	// case "convert":
 	// 	err = cmd.Convert()
@@ -215,7 +218,7 @@ func create(spy io.Writer) error {
 	defer cleanup()
 
 	skipper := func(n fs.FileInfo) bool {
-		return !n.Mode().IsRegular() || n.Size() == 0 || n.Name() == core.STATE_NAME
+		return !n.Mode().IsDir() && (!n.Mode().IsRegular() || n.Size() == 0 || n.Name() == core.STATE_NAME)
 	}
 
 	// ⛲️ Source by exploring all nodes
@@ -296,7 +299,6 @@ func info() error {
 		}
 	}
 
-	// Write some report on stdout
 	fmt.Fprintf(output, "Totalling %s and %d files\n", core.ByteSize(size), count)
 	return nil
 }
@@ -325,8 +327,6 @@ func readTree(path string) (*core.Tree, error) {
 		return nil, err
 	}
 
-	// Write some report on stdout
-	// fmt.Fprintf(output, "Totalling %s and %d files\n", core.ByteSize(size), count)
 	return t, nil
 }
 
@@ -347,7 +347,7 @@ func readInfo(path string) (*core.Info, error) {
 	return i, nil
 }
 
-func trim(withs ...string) error {
+func trim(delete bool, withs ...string) error {
 	matches := make(core.HashGroup)
 
 	cur, err := readTree(spath)
@@ -376,7 +376,28 @@ func trim(withs ...string) error {
 			continue
 		}
 		if verbose {
-			fmt.Fprintln(output, g.String(cur))
+
+			s := fmt.Sprintf("%d nodes (save %s)\n", len(g.Nodes), g.WastedSize())
+			sort.Sort(core.ByPath(g.Nodes))
+			for _, n := range g.Nodes {
+				if n.Tree() == cur {
+					s = s + fmt.Sprintf(color.Red+"\t- %s [%s]\n"+color.Reset, n, n.Tree().RelPath(n))
+				} else {
+					s = s + fmt.Sprintf(color.Green+"\t+ %s\n"+color.Reset, n)
+				}
+			}
+
+			fmt.Fprintln(output, s)
+		}
+		if delete {
+			for _, n := range g.Nodes {
+				if n.Tree() == cur {
+					err := os.Remove(n.Tree().AbsPath(n))
+					if err != nil {
+						return err
+					}
+				}
+			}
 		}
 		count++
 		waste = waste + int64(g.WastedSize())

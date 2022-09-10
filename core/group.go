@@ -5,14 +5,16 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sort"
 )
 
 // Group of duplicated Nodes sharing the same Hash (and Size)
 type Group struct {
+	// Nodes having the same size and hash
 	Nodes []*Node
-	Hash  [sha1.Size]byte
-	Size  int64
+	// Hash of a single Node
+	Hash [sha1.Size]byte
+	// Size of a single Node
+	Size int64
 }
 
 type ByPath []*Node
@@ -24,19 +26,6 @@ func (a ByPath) Less(i, j int) bool {
 	return false //x < y
 }
 func (a ByPath) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-
-func (g Group) String(current *Tree) string {
-	s := fmt.Sprintf("%d nodes (save %s)\n", len(g.Nodes), g.WastedSize())
-	sort.Sort(ByPath(g.Nodes))
-	for _, n := range g.Nodes {
-		if n.tree == current {
-			s = s + fmt.Sprintf("\tC %s [%s]\n", n, n.tree.RelPath(n))
-		} else {
-			s = s + fmt.Sprintf("\td %s\n", n)
-		}
-	}
-	return s
-}
 
 func (g Group) WastedSize() ByteSize {
 	return ByteSize(g.Size * int64(len(g.Nodes)-1))

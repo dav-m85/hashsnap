@@ -30,6 +30,7 @@ type Tree struct {
 
 func NewTree(info *Info) *Tree {
 	return &Tree{
+		info:     info,
 		nodes:    make(map[int]*Node),
 		children: make(map[int][]int),
 	}
@@ -55,6 +56,10 @@ func (t *Tree) RelPath(n *Node) (path string) {
 		}
 	}
 	return
+}
+
+func (t *Tree) AbsPath(n *Node) (path string) {
+	return filepath.Join(t.info.RootPath, t.RelPath(n))
 }
 
 // TODO check it is connected

@@ -22,6 +22,10 @@ type Node struct {
 	tree         *Tree
 }
 
+func (n *Node) Tree() *Tree {
+	return n.tree
+}
+
 type NodeP struct {
 	Node *Node
 	Path string
