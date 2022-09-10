@@ -1,45 +1,55 @@
-package state
+package core
 
 import (
 	"fmt"
 	"io"
-
-	"github.com/dav-m85/hashsnap/core"
 )
 
 // Iterator goes through a Node slice with a similar interface to sql.Rows.
 type Iterator interface {
-	Node() *core.Node
+	Node() *Node
 	Error() error
 	Next() bool
 }
 
+// Decoder decodes into e or sends an error. Used here to abstract gob.Decoder
 type Decoder interface {
 	Decode(e interface{}) error
 }
 
 // ReadAll Iterator's nodes and return them as a slice. Inspect Iterator's Error
 // method to check if everything went well.
-func ReadAll(nodes Iterator) []*core.Node {
-	var r []*core.Node
+func ReadAll(it Iterator) []*Node {
+	var r []*Node
 
-	for nodes.Next() {
-		r = append(r, nodes.Node())
+	for it.Next() {
+		r = append(r, it.Node())
 	}
 
 	return r
 }
 
+func Each(it Iterator, nf func(n *Node) error) error {
+	for it.Next() {
+		if err := nf(it.Node()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+var _ Iterator = &DecoderIterator{}
+
 // DecoderIterator decodes a StateFile Node per Node.
 type DecoderIterator struct {
 	Decoder Decoder
 	err     error
-	n       *core.Node
+	n       *Node
 	pos     int
 }
 
 // Node currently being decoded
-func (ni *DecoderIterator) Node() *core.Node {
+func (ni *DecoderIterator) Node() *Node {
 	if ni.n == nil {
 		panic("Call Next at least once")
 	}
@@ -54,7 +64,7 @@ func (ni *DecoderIterator) Error() error {
 // Next yields true if a new Node has been decoded. On end of file or failure,
 // it'll return false. Inspect DecoderIterator.Error for possible errors.
 func (ni *DecoderIterator) Next() bool {
-	n := core.Node{}
+	n := Node{}
 	err := ni.Decoder.Decode(&n)
 	if err == io.EOF {
 		return false

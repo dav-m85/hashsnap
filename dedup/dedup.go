@@ -2,7 +2,6 @@ package dedup
 
 import (
 	"github.com/dav-m85/hashsnap/core"
-	"github.com/dav-m85/hashsnap/state"
 )
 
 type State interface {

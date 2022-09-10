@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/dav-m85/hashsnap/core"
-	"github.com/dav-m85/hashsnap/state"
 	"github.com/matryer/is"
 )
 

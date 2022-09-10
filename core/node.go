@@ -19,6 +19,7 @@ type Node struct {
 	Hash [sha1.Size]byte // hash.Hash // sha1.New()
 
 	ID, ParentID int
+	tree         *Tree
 }
 
 type NodeP struct {

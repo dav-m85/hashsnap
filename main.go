@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/dav-m85/hashsnap/core"
-	"github.com/dav-m85/hashsnap/state"
 	"github.com/google/uuid"
 	bar "github.com/schollz/progressbar/v3"
 )
@@ -71,7 +70,8 @@ func main() {
 		help()
 	}
 
-	createCmd.BoolVar(&verbose, "verbose", false, "list all groups")
+	createCmd.BoolVar(&verbose, "verbose", false, "displays hashing speed")
+	infoCmd.BoolVar(&verbose, "verbose", false, "enumerates all files (high-mem)")
 	trimCmd.BoolVar(&verbose, "verbose", false, "list all groups")
 
 	cm := subcommands[os.Args[1]]
@@ -80,23 +80,25 @@ func main() {
 	}
 
 	cm.Parse(os.Args[2:])
+
+	// Making sure wd and spath are properly set
 	if err := cleanwd(); err != nil {
 		panic(err)
 	}
 	if spath == "" {
 		var err error
-		spath, err = state.LookupFrom(wd)
+		spath, err = core.LookupFrom(wd)
 		if err != nil {
 			panic(err)
 		}
 	}
 	if spath == "" {
-		spath = filepath.Join(wd, state.STATE_NAME)
+		spath = filepath.Join(wd, core.STATE_NAME)
 	}
 
-	// Until their, mqke sure options are parsed and statefile is found
-
+	// Main command switch
 	var err error
+main:
 	switch cm.Name() {
 
 	case createCmd.Name():
@@ -118,38 +120,35 @@ func main() {
 	// case dedupCmd.Name():
 	// 	err = dedup.Dedup(opt.State, verbose, cm.Args()...)
 
-	// case trimCmd.Name():
-	// 	var withsNonce []uuid.UUID
-	// 	err = opt.State.ReadInfo()
-	// 	if err != nil {
-	// 		break
-	// 	}
-	// 	withsNonce = append(withsNonce, opt.State.Info.Nonce)
+	case trimCmd.Name():
+		var withsNonce []uuid.UUID
+		var i *core.Info
+		if i, err = readInfo(spath); err != nil {
+			break
+		}
+		withsNonce = append(withsNonce, i.Nonce)
 
-	// 	var withs []trim.State
-	// 	if len(cm.Args()) == 0 {
-	// 		err = fmt.Errorf("wrong usage")
-	// 		break
-	// 	}
+		var withs []string
+		if len(cm.Args()) == 0 {
+			err = fmt.Errorf("wrong usage")
+			break
+		}
 
-	// 	for _, wpath := range cm.Args() {
-	// 		w := state.New(wpath)
-	// 		err = w.ReadInfo()
-	// 		if err != nil {
-	// 			break main
-	// 		}
-	// 		for _, x := range withsNonce {
-	// 			if x == w.Info.Nonce {
-	// 				err = fmt.Errorf("file has already been imported once")
-	// 				break main
-	// 			}
-	// 		}
-	// 		withsNonce = append(withsNonce, w.Info.Nonce)
-	// 		var ts trim.State = w
-	// 		withs = append(withs, ts)
-	// 	}
+		for _, wpath := range cm.Args() {
+			if i, err = readInfo(wpath); err != nil {
+				break main
+			}
+			for _, x := range withsNonce {
+				if x == i.Nonce {
+					err = fmt.Errorf("file has already been imported once")
+					break main
+				}
+			}
+			withsNonce = append(withsNonce, i.Nonce)
+			withs = append(withs, wpath)
+		}
 
-	// 	err = trim.Trim(opt.State, verbose, withs...)
+		err = trim(withs...)
 
 	// case "convert":
 	// 	err = cmd.Convert()
@@ -164,6 +163,7 @@ func main() {
 	}
 }
 
+// dedup     Good old deduplication, with man guards
 func help() {
 	fmt.Print(`usage: hsnap <command> [<args>]
 
@@ -171,7 +171,6 @@ These are common hsnap commands used in various situations:
 
 create    Make a snapshot for current working directory
 info      Detail content of a snapshot
-dedup     Good old deduplication, with man guards
 trim      Remove local files that are already present in provided snapshots
 help      This help message
 `)
@@ -216,7 +215,7 @@ func create(spy io.Writer) error {
 	defer cleanup()
 
 	skipper := func(n fs.FileInfo) bool {
-		return !n.Mode().IsRegular() || n.Size() == 0 || n.Name() == state.STATE_NAME
+		return !n.Mode().IsRegular() || n.Size() == 0 || n.Name() == core.STATE_NAME
 	}
 
 	// ⛲️ Source by exploring all nodes
@@ -239,7 +238,7 @@ func create(spy io.Writer) error {
 	return nil
 }
 
-// Info opens an hsnap, read its info header and counts how many nodes it has
+// info opens an hsnap, read its info header and counts how many nodes it has
 // it does not check for sanity (like child has a valid parent and so on)
 func info() error {
 	f, err := os.OpenFile(spath, os.O_RDONLY, 0666)
@@ -254,34 +253,51 @@ func info() error {
 	if err = dec.Decode(i); err != nil {
 		return err
 	}
-	fmt.Fprintf(output, "Info: %#v\n", i)
+	fmt.Fprintf(output, "%s\n", i)
 
-	nodes := &state.DecoderIterator{
+	nodes := &core.DecoderIterator{
 		Decoder: dec,
 	}
+
+	// TODO check file exists
 
 	// Cycle through all nodes
 	var size int64
 	var count int64
 
-	t := core.NewTree()
-
-	// check file exists
-
-	for nodes.Next() {
-		n := nodes.Node()
-		t.Add(n)
-		if n.Mode.IsDir() {
-			continue
+	if verbose {
+		t := core.NewTree(i)
+		if err := t.ReadIterator(nodes); err != nil {
+			return fmt.Errorf("statefile %s nodes error: %w", spath, err)
 		}
+		ti := core.NewTreeIterator(t)
+		for ti.Next() {
+			n := ti.Node()
+			if n.Mode.IsDir() {
+				continue
+			}
 
-		rp, rperr := t.RelPath(n)
-		fmt.Fprintf(output, "\t%s (%s)\n", color.Green+rp+color.Reset, rperr) // children is not up to date here
-		size = size + n.Size
-		count++
-	}
-	if err := nodes.Error(); err != nil {
-		return fmt.Errorf("statefile %s nodes error: %w", spath, err)
+			rp, rperr := t.RelPath(n)
+			if rperr != nil {
+				fmt.Fprintf(output, "\t%s %s (%s)\n", color.Green+rp+color.Reset, core.ByteSize(n.Size), rperr) // children is not up to date here
+			} else {
+				fmt.Fprintf(output, "\t%s %s\n", color.Green+rp+color.Reset, core.ByteSize(n.Size)) // children is not up to date here
+			}
+			size = size + n.Size
+			count++
+		}
+		if err := ti.Error(); err != nil {
+			return err
+		}
+	} else {
+		for nodes.Next() {
+			n := nodes.Node()
+			size = size + n.Size
+			count++
+		}
+		if err := nodes.Error(); err != nil {
+			return err
+		}
 	}
 
 	// Write some report on stdout
@@ -289,12 +305,7 @@ func info() error {
 	return nil
 }
 
-type NodeFile struct {
-	Info  *core.Info
-	Nodes []*core.Node
-}
-
-func read(path string) (*NodeFile, error) {
+func readTree(path string) (*core.Tree, error) {
 	f, err := os.OpenFile(path, os.O_RDONLY, 0666)
 	if err != nil {
 		return nil, err
@@ -307,31 +318,56 @@ func read(path string) (*NodeFile, error) {
 	if err = dec.Decode(i); err != nil {
 		return nil, err
 	}
-	fmt.Fprintf(output, "Info: %#v\n", i)
 
-	nodes := &state.DecoderIterator{
+	nodes := &core.DecoderIterator{
 		Decoder: dec,
 	}
 
-	state.ReadAll(nodes)
+	t := core.NewTree(i)
+
+	if err := t.ReadIterator(nodes); err != nil {
+		return nil, err
+	}
 
 	// Write some report on stdout
-	fmt.Fprintf(output, "Totalling %s and %d files\n", core.ByteSize(size), count)
-	return nil
+	// fmt.Fprintf(output, "Totalling %s and %d files\n", core.ByteSize(size), count)
+	return t, nil
+}
+
+func readInfo(path string) (*core.Info, error) {
+	f, err := os.OpenFile(path, os.O_RDONLY, 0666)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	dec := gob.NewDecoder(f)
+
+	i := new(core.Info)
+	if err = dec.Decode(i); err != nil {
+		return nil, err
+	}
+
+	return i, nil
 }
 
 func trim(withs ...string) error {
-	cur, err := read(spath)
-
 	matches := make(core.HashGroup)
 
-	if err := matches.Add(cur.Nodes); err != nil {
+	cur, err := readTree(spath)
+	if err != nil {
+		return err
+	}
+	if err := core.Each(core.NewTreeIterator(cur), matches.Add); err != nil {
 		return err
 	}
 
 	for _, w := range withs {
-		x, err := read(w)
-		if err := matches.Intersect(x.Nodes); err != nil {
+		x, err := readTree(w)
+		if err != nil {
+			return err
+		}
+		if err := core.Each(core.NewTreeIterator(x), matches.Intersect); err != nil {
 			return err
 		}
 	}
