@@ -17,16 +17,6 @@ type Group struct {
 	Size int64
 }
 
-type ByPath []*Node
-
-func (a ByPath) Len() int { return len(a) }
-func (a ByPath) Less(i, j int) bool {
-	// x := a[i].Path()
-	// y := a[j].Path()
-	return false //x < y
-}
-func (a ByPath) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-
 func (g Group) WastedSize() ByteSize {
 	return ByteSize(g.Size * int64(len(g.Nodes)-1))
 }

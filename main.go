@@ -10,7 +10,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"sort"
 	"time"
 
 	"github.com/dav-m85/hashsnap/core"
@@ -378,7 +377,6 @@ func trim(delete bool, withs ...string) error {
 		if verbose {
 
 			s := fmt.Sprintf("%d nodes (save %s)\n", len(g.Nodes), g.WastedSize())
-			sort.Sort(core.ByPath(g.Nodes))
 			for _, n := range g.Nodes {
 				if n.Tree() == cur {
 					s = s + fmt.Sprintf(color.Red+"\t- %s [%s]\n"+color.Reset, n, n.Tree().RelPath(n))
