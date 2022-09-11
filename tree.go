@@ -1,7 +1,9 @@
 package hashsnap
 
 import (
+	"encoding/gob"
 	"fmt"
+	"io"
 	"path/filepath"
 	"time"
 
@@ -28,46 +30,31 @@ type Tree struct {
 	children map[int][]int
 }
 
-func NewTree(info *Info) *Tree {
-	return &Tree{
-		info:     info,
-		nodes:    make(map[int]*Node),
-		children: make(map[int][]int),
-	}
-}
+func ReadTree(r io.Reader) (*Tree, error) { // options ?
+	t := new(Tree)
 
-func (t *Tree) ReadIterator(it Iterator) error {
-	for it.Next() {
-		n := it.Node()
-		t.Add(n)
-		n.tree = t
-	}
-	return it.Error()
-}
+	dec := gob.NewDecoder(r)
 
-func (t *Tree) RelPath(n *Node) (path string) {
-	// on := n
-	for n.ID > 0 {
-		path = filepath.Join(n.Name, path)
-		var ok bool
-		if n, ok = t.nodes[n.ParentID]; !ok {
-			// err = fmt.Errorf("cannot resolve full path for %s, missing parent for %s", on, n)
-			return ""
+	i := new(Info)
+	if err := dec.Decode(i); err != nil {
+		return t, err
+	}
+
+	t.info = i
+
+	for {
+		n := new(Node)
+		err := dec.Decode(n)
+		if err == io.EOF {
+			break
 		}
+		if err != nil {
+			return t, err
+		}
+		t.Add(n)
 	}
-	return
-}
 
-func (t *Tree) AbsPath(n *Node) (path string) {
-	return filepath.Join(t.info.RootPath, t.RelPath(n))
-}
-
-// TODO check it is connected
-func (t *Tree) IsOK() (bool, error) {
-	if len(t.nodes) != len(t.children) {
-		return false, fmt.Errorf("children entries and nodes entries are not the same length")
-	}
-	return false, fmt.Errorf("Unimplemented")
+	return t, nil
 }
 
 func (t *Tree) Add(n *Node) {
@@ -79,41 +66,36 @@ func (t *Tree) Add(n *Node) {
 		t.children[n.ParentID] = []int{}
 	}
 	t.children[n.ParentID] = append(t.children[n.ParentID], n.ID)
+	n.tree = t
 }
 
-var _ Iterator = &TreeIterator{}
-
-// TreeIterator decodes a StateFile Node per Node.
-type TreeIterator struct {
-	n     int
-	nodes []*Node
-}
-
-func NewTreeIterator(tree *Tree) *TreeIterator {
-	tr := new(TreeIterator)
-	for _, n := range tree.nodes {
-		tr.nodes = append(tr.nodes, n)
+func (t *Tree) RelPath(n *Node) (path string) {
+	if n.tree != t {
+		panic("wrong tree used for resolving path")
 	}
-	tr.n = -1
-	return tr
-}
-
-// Node currently being decoded
-func (ni *TreeIterator) Node() *Node {
-	if ni.n == -1 {
-		panic("Call Next at least once")
+	on := n
+	for n.ID > 0 {
+		path = filepath.Join(n.Name, path)
+		var ok bool
+		if n, ok = t.nodes[n.ParentID]; !ok {
+			panic(fmt.Sprintf("cannot resolve full path for %s, missing parent for %s", on, n))
+		}
 	}
-	return ni.nodes[ni.n]
+	return
 }
 
-// Error returned after a call to Next if any
-func (ni *TreeIterator) Error() error {
-	return nil
+func (t *Tree) AbsPath(n *Node) (path string) {
+	return filepath.Join(t.info.RootPath, t.RelPath(n))
 }
 
-// Next yields true if a new Node has been decoded. On end of tree or failure,
-// it'll return false.
-func (ni *TreeIterator) Next() bool {
-	ni.n++
-	return ni.n < len(ni.nodes)
+func (t *Tree) Trim(withs ...*Tree) HashGroup {
+	matches := make(HashGroup)
+	return matches
+	// if err := Each(NewTreeIterator(cur), matches.Add); err != nil {
+	// 	return err
+	// }
+	// if err := Each(NewTreeIterator(x), matches.Intersect); err != nil {
+	// 	return err
+	// }
+
 }

@@ -1,16 +1,13 @@
 package main
 
 import (
-	"context"
 	"encoding/gob"
 	"flag"
 	"fmt"
 	"io"
-	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/dav-m85/hashsnap"
 	"github.com/google/uuid"
@@ -199,41 +196,7 @@ func create(spy io.Writer) error {
 	}
 	defer f.Close()
 
-	enc := gob.NewEncoder(f)
-
-	// Write info node
-	err = enc.Encode(hashsnap.Info{
-		Version:   1,
-		RootPath:  wd,
-		CreatedAt: time.Now(),
-		Nonce:     uuid.New(),
-	})
-	if err != nil {
-		return err
-	}
-
-	// Pipeline context... cancelling it cancels them all
-	ctx, cleanup := context.WithCancel(context.Background())
-	defer cleanup()
-
-	skipper := func(n fs.FileInfo) bool {
-		return !n.Mode().IsDir() && (!n.Mode().IsRegular() || n.Size() == 0 || n.Name() == hashsnap.STATE_NAME)
-	}
-
-	// ⛲️ Source by exploring all nodes
-	files, err := hashsnap.WalkFS(ctx, skipper, wd)
-	if err != nil {
-		return err
-	}
-
-	// 🏭 Hash them all and write hashes to statefile
-	var c int
-	for x := range hashsnap.Hasher(ctx, wd, spy, files) {
-		c++
-		if err := enc.Encode(x); err != nil {
-			return err
-		}
-	}
+	c := hashsnap.Snapshot(wd, f, spy)
 
 	fmt.Fprintf(output, "Encoded %d files", c)
 
@@ -309,24 +272,7 @@ func readTree(path string) (*hashsnap.Tree, error) {
 	}
 	defer f.Close()
 
-	dec := gob.NewDecoder(f)
-
-	i := new(hashsnap.Info)
-	if err = dec.Decode(i); err != nil {
-		return nil, err
-	}
-
-	nodes := &hashsnap.DecoderIterator{
-		Decoder: dec,
-	}
-
-	t := hashsnap.NewTree(i)
-
-	if err := t.ReadIterator(nodes); err != nil {
-		return nil, err
-	}
-
-	return t, nil
+	return hashsnap.ReadTree(f)
 }
 
 func readInfo(path string) (*hashsnap.Info, error) {
@@ -347,25 +293,21 @@ func readInfo(path string) (*hashsnap.Info, error) {
 }
 
 func trim(delete bool, withs ...string) error {
-	matches := make(hashsnap.HashGroup)
-
 	cur, err := readTree(spath)
 	if err != nil {
 		return err
 	}
-	if err := hashsnap.Each(hashsnap.NewTreeIterator(cur), matches.Add); err != nil {
-		return err
-	}
 
+	var trees []*hashsnap.Tree
 	for _, w := range withs {
 		x, err := readTree(w)
 		if err != nil {
 			return err
 		}
-		if err := hashsnap.Each(hashsnap.NewTreeIterator(x), matches.Intersect); err != nil {
-			return err
-		}
+		trees = append(trees, x)
 	}
+
+	matches := cur.Trim(trees...)
 
 	var count int64
 	var waste int64

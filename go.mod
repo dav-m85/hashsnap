@@ -3,6 +3,7 @@ module github.com/dav-m85/hashsnap
 go 1.15
 
 require (
+	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/integrii/flaggy v1.4.4
 	github.com/matryer/is v1.4.0 // indirect

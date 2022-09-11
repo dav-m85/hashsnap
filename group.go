@@ -12,9 +12,9 @@ type Group struct {
 	// Nodes having the same size and hash
 	Nodes []*Node
 	// Hash of a single Node
-	Hash [sha1.Size]byte
+	Hash [sha1.Size]byte // TODO remove
 	// Size of a single Node
-	Size int64
+	Size int64 // TODO remove
 }
 
 func (g Group) WastedSize() ByteSize {
@@ -31,7 +31,7 @@ func (r HashGroup) Add(n *Node) error {
 	}
 	if grp, ok := r[n.Hash]; ok {
 		if grp.Size != n.Size {
-			return fmt.Errorf("collision, same hash but different size")
+			return fmt.Errorf("collision, same hash but different size") // TODO panic
 		}
 		// matching group found; add this file to existing group
 		grp.Nodes = append(grp.Nodes, n)

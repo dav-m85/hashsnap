@@ -4,9 +4,6 @@ import (
 	"crypto/sha1"
 	"io"
 	"io/fs"
-	"testing"
-
-	"github.com/matryer/is"
 )
 
 func flatten(nodes [][]*Node) []*Node {
@@ -52,28 +49,28 @@ func n(name, content string, children ...[]*Node) []*Node {
 	return append([]*Node{n}, flat...)
 }
 
-func TestAbs(t *testing.T) {
-	is := is.New(t)
+// func TestAbs(t *testing.T) {
+// 	is := is.New(t)
 
-	h := make(HashGroup)
-	h.Add(n(
-		"/", "", // dir
-		n("a", "", // dir
-			n("c", "aze"),
-			n("d", "foo"),
-		),
-		n("b", "bar"),
-	))
+// 	h := make(HashGroup)
+// 	h.Add(n(
+// 		"/", "", // dir
+// 		n("a", "", // dir
+// 			n("c", "aze"),
+// 			n("d", "foo"),
+// 		),
+// 		n("b", "bar"),
+// 	))
 
-	// This one is their
-	_, ok := h[n("z", "aze")[0].Hash]
-	is.True(ok)
+// 	// This one is their
+// 	_, ok := h[n("z", "aze")[0].Hash]
+// 	is.True(ok)
 
-	// This one not
-	_, ok = h[n("z", "foe")[0].Hash]
-	is.True(!ok)
+// 	// This one not
+// 	_, ok = h[n("z", "foe")[0].Hash]
+// 	is.True(!ok)
 
-	// This one is a dir
-	_, ok = h[n("/", "", n("z", "foe"))[0].Hash]
-	is.True(!ok)
-}
+// 	// This one is a dir
+// 	_, ok = h[n("/", "", n("z", "foe"))[0].Hash]
+// 	is.True(!ok)
+// }

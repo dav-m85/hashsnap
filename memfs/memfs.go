@@ -103,6 +103,14 @@ func (rootFS *FS) getDir(path string) (*dir, error) {
 	return cur, nil
 }
 
+func (rootFS *FS) Stat(path string) (os.FileInfo, error) {
+	f, err := rootFS.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	return f.Stat()
+}
+
 func (rootFS *FS) get(path string) (childI, error) {
 	if path == "" {
 		return rootFS.dir, nil
