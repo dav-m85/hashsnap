@@ -1,4 +1,4 @@
-package core
+package hashsnap
 
 var F func(t *Tree, path string, content string)
 var expect func(t *Tree, path string)

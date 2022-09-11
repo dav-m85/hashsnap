@@ -1,4 +1,4 @@
-package core
+package hashsnap
 
 import (
 	"crypto/sha1"

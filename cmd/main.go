@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/dav-m85/hashsnap/core"
+	"github.com/dav-m85/hashsnap"
 	"github.com/google/uuid"
 	bar "github.com/schollz/progressbar/v3"
 )
@@ -89,13 +89,13 @@ func main() {
 	}
 	if spath == "" {
 		var err error
-		spath, err = core.LookupFrom(wd)
+		spath, err = hashsnap.LookupFrom(wd)
 		if err != nil {
 			panic(err)
 		}
 	}
 	if spath == "" {
-		spath = filepath.Join(wd, core.STATE_NAME)
+		spath = filepath.Join(wd, hashsnap.STATE_NAME)
 	}
 
 	// Main command switch
@@ -124,7 +124,7 @@ main:
 
 	case trimCmd.Name():
 		var withsNonce []uuid.UUID
-		var i *core.Info
+		var i *hashsnap.Info
 		if i, err = readInfo(spath); err != nil {
 			break
 		}
@@ -202,7 +202,7 @@ func create(spy io.Writer) error {
 	enc := gob.NewEncoder(f)
 
 	// Write info node
-	err = enc.Encode(core.Info{
+	err = enc.Encode(hashsnap.Info{
 		Version:   1,
 		RootPath:  wd,
 		CreatedAt: time.Now(),
@@ -217,18 +217,18 @@ func create(spy io.Writer) error {
 	defer cleanup()
 
 	skipper := func(n fs.FileInfo) bool {
-		return !n.Mode().IsDir() && (!n.Mode().IsRegular() || n.Size() == 0 || n.Name() == core.STATE_NAME)
+		return !n.Mode().IsDir() && (!n.Mode().IsRegular() || n.Size() == 0 || n.Name() == hashsnap.STATE_NAME)
 	}
 
 	// ⛲️ Source by exploring all nodes
-	files, err := core.WalkFS(ctx, skipper, wd)
+	files, err := hashsnap.WalkFS(ctx, skipper, wd)
 	if err != nil {
 		return err
 	}
 
 	// 🏭 Hash them all and write hashes to statefile
 	var c int
-	for x := range core.Hasher(ctx, wd, spy, files) {
+	for x := range hashsnap.Hasher(ctx, wd, spy, files) {
 		c++
 		if err := enc.Encode(x); err != nil {
 			return err
@@ -251,13 +251,13 @@ func info() error {
 
 	dec := gob.NewDecoder(f)
 
-	i := new(core.Info)
+	i := new(hashsnap.Info)
 	if err = dec.Decode(i); err != nil {
 		return err
 	}
 	fmt.Fprintf(output, "%s\n", i)
 
-	nodes := &core.DecoderIterator{
+	nodes := &hashsnap.DecoderIterator{
 		Decoder: dec,
 	}
 
@@ -268,18 +268,18 @@ func info() error {
 	var count int64
 
 	if verbose {
-		t := core.NewTree(i)
+		t := hashsnap.NewTree(i)
 		if err := t.ReadIterator(nodes); err != nil {
 			return fmt.Errorf("statefile %s nodes error: %w", spath, err)
 		}
-		ti := core.NewTreeIterator(t)
+		ti := hashsnap.NewTreeIterator(t)
 		for ti.Next() {
 			n := ti.Node()
 			if n.Mode.IsDir() {
 				continue
 			}
 
-			fmt.Fprintf(output, "\t%s %s\n", color.Green+t.RelPath(n)+color.Reset, core.ByteSize(n.Size)) // children is not up to date here
+			fmt.Fprintf(output, "\t%s %s\n", color.Green+t.RelPath(n)+color.Reset, hashsnap.ByteSize(n.Size)) // children is not up to date here
 
 			size = size + n.Size
 			count++
@@ -298,11 +298,11 @@ func info() error {
 		}
 	}
 
-	fmt.Fprintf(output, "Totalling %s and %d files\n", core.ByteSize(size), count)
+	fmt.Fprintf(output, "Totalling %s and %d files\n", hashsnap.ByteSize(size), count)
 	return nil
 }
 
-func readTree(path string) (*core.Tree, error) {
+func readTree(path string) (*hashsnap.Tree, error) {
 	f, err := os.OpenFile(path, os.O_RDONLY, 0666)
 	if err != nil {
 		return nil, err
@@ -311,16 +311,16 @@ func readTree(path string) (*core.Tree, error) {
 
 	dec := gob.NewDecoder(f)
 
-	i := new(core.Info)
+	i := new(hashsnap.Info)
 	if err = dec.Decode(i); err != nil {
 		return nil, err
 	}
 
-	nodes := &core.DecoderIterator{
+	nodes := &hashsnap.DecoderIterator{
 		Decoder: dec,
 	}
 
-	t := core.NewTree(i)
+	t := hashsnap.NewTree(i)
 
 	if err := t.ReadIterator(nodes); err != nil {
 		return nil, err
@@ -329,7 +329,7 @@ func readTree(path string) (*core.Tree, error) {
 	return t, nil
 }
 
-func readInfo(path string) (*core.Info, error) {
+func readInfo(path string) (*hashsnap.Info, error) {
 	f, err := os.OpenFile(path, os.O_RDONLY, 0666)
 	if err != nil {
 		return nil, err
@@ -338,7 +338,7 @@ func readInfo(path string) (*core.Info, error) {
 
 	dec := gob.NewDecoder(f)
 
-	i := new(core.Info)
+	i := new(hashsnap.Info)
 	if err = dec.Decode(i); err != nil {
 		return nil, err
 	}
@@ -347,13 +347,13 @@ func readInfo(path string) (*core.Info, error) {
 }
 
 func trim(delete bool, withs ...string) error {
-	matches := make(core.HashGroup)
+	matches := make(hashsnap.HashGroup)
 
 	cur, err := readTree(spath)
 	if err != nil {
 		return err
 	}
-	if err := core.Each(core.NewTreeIterator(cur), matches.Add); err != nil {
+	if err := hashsnap.Each(hashsnap.NewTreeIterator(cur), matches.Add); err != nil {
 		return err
 	}
 
@@ -362,7 +362,7 @@ func trim(delete bool, withs ...string) error {
 		if err != nil {
 			return err
 		}
-		if err := core.Each(core.NewTreeIterator(x), matches.Intersect); err != nil {
+		if err := hashsnap.Each(hashsnap.NewTreeIterator(x), matches.Intersect); err != nil {
 			return err
 		}
 	}
@@ -401,6 +401,6 @@ func trim(delete bool, withs ...string) error {
 		waste = waste + int64(g.WastedSize())
 	}
 
-	fmt.Fprintf(output, "%d duplicated groups, totalling %s wasted space\n", count, core.ByteSize(waste))
+	fmt.Fprintf(output, "%d duplicated groups, totalling %s wasted space\n", count, hashsnap.ByteSize(waste))
 	return nil
 }
