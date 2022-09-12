@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 
 	"github.com/dav-m85/hashsnap"
-	"github.com/google/uuid"
 	bar "github.com/schollz/progressbar/v3"
 )
 
@@ -97,7 +96,6 @@ func main() {
 
 	// Main command switch
 	var err error
-main:
 	switch cm.Name() {
 
 	case createCmd.Name():
@@ -120,37 +118,11 @@ main:
 	// 	err = dedup.Dedup(opt.State, verbose, cm.Args()...)
 
 	case trimCmd.Name():
-		var withsNonce []uuid.UUID
-		var i *hashsnap.Info
-		if i, err = readInfo(spath); err != nil {
-			break
-		}
-		withsNonce = append(withsNonce, i.Nonce)
-
-		var withs []string
 		if len(cm.Args()) == 0 {
 			err = fmt.Errorf("wrong usage")
 			break
 		}
-
-		for _, wpath := range cm.Args() {
-			if i, err = readInfo(wpath); err != nil {
-				break main
-			}
-			for _, x := range withsNonce {
-				if x == i.Nonce {
-					err = fmt.Errorf("%s is already in the trim set", wpath)
-					break main
-				}
-			}
-			withsNonce = append(withsNonce, i.Nonce)
-			withs = append(withs, wpath)
-		}
-
-		err = trim(delete, withs...)
-
-	// case "convert":
-	// 	err = cmd.Convert()
+		err = trim(delete, cm.Args()...)
 
 	default:
 		log.Fatalf("Subcommand '%s' is not implemented!", cm.Name())
@@ -185,10 +157,20 @@ func cleanwd() (err error) {
 	return
 }
 
+func readTree(path string) (*hashsnap.Tree, error) {
+	f, err := os.OpenFile(path, os.O_RDONLY, 0666)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	return hashsnap.ReadTree(f)
+}
+
 func create(spy io.Writer) error {
-	// errors.New("already a hsnap directory or child")
-	// _, err := os.Stat(sf.Path)
-	// st := state.New(filepath.Join(wd, state.STATE_NAME))
+	if path, err := hashsnap.LookupFrom(spath); path != "" || err != nil {
+		return fmt.Errorf("already a hsnap directory or child in %s: %s", path, err)
+	}
 
 	f, err := os.OpenFile(spath, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0666)
 	if err != nil {
@@ -205,6 +187,7 @@ func create(spy io.Writer) error {
 
 // info opens an hsnap, read its info header and counts how many nodes it has
 // it does not check for sanity (like child has a valid parent and so on)
+// TODO feature: check nodes exists
 func info() error {
 	f, err := os.OpenFile(spath, os.O_RDONLY, 0666)
 	if err != nil {
@@ -220,76 +203,23 @@ func info() error {
 	}
 	fmt.Fprintf(output, "%s\n", i)
 
-	nodes := &hashsnap.DecoderIterator{
-		Decoder: dec,
-	}
-
-	// TODO check file exists
-
 	// Cycle through all nodes
 	var size int64
 	var count int64
 
-	if verbose {
-		t := hashsnap.NewTree(i)
-		if err := t.ReadIterator(nodes); err != nil {
-			return fmt.Errorf("statefile %s nodes error: %w", spath, err)
-		}
-		ti := hashsnap.NewTreeIterator(t)
-		for ti.Next() {
-			n := ti.Node()
-			if n.Mode.IsDir() {
-				continue
-			}
+	// fmt.Fprintf(output, "\t%s %s\n", color.Green+t.RelPath(n)+color.Reset, hashsnap.ByteSize(n.Size)) // children is not up to date here
 
-			fmt.Fprintf(output, "\t%s %s\n", color.Green+t.RelPath(n)+color.Reset, hashsnap.ByteSize(n.Size)) // children is not up to date here
-
-			size = size + n.Size
-			count++
-		}
-		if err := ti.Error(); err != nil {
-			return err
-		}
-	} else {
-		for nodes.Next() {
-			n := nodes.Node()
-			size = size + n.Size
-			count++
-		}
-		if err := nodes.Error(); err != nil {
-			return err
-		}
+	err = hashsnap.DecodeNodes(dec, func(n *hashsnap.Node) error {
+		size = size + n.Size
+		count++
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	fmt.Fprintf(output, "Totalling %s and %d files\n", hashsnap.ByteSize(size), count)
 	return nil
-}
-
-func readTree(path string) (*hashsnap.Tree, error) {
-	f, err := os.OpenFile(path, os.O_RDONLY, 0666)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	return hashsnap.ReadTree(f)
-}
-
-func readInfo(path string) (*hashsnap.Info, error) {
-	f, err := os.OpenFile(path, os.O_RDONLY, 0666)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	dec := gob.NewDecoder(f)
-
-	i := new(hashsnap.Info)
-	if err = dec.Decode(i); err != nil {
-		return nil, err
-	}
-
-	return i, nil
 }
 
 func trim(delete bool, withs ...string) error {
@@ -308,14 +238,13 @@ func trim(delete bool, withs ...string) error {
 	}
 
 	matches := cur.Trim(trees...)
+	matches.PruneSingleTreeGroups()
 
 	var count int64
 	var waste int64
 
 	for _, g := range matches {
-		if len(g.Nodes) < 2 {
-			continue
-		}
+
 		if verbose {
 
 			s := fmt.Sprintf("%d nodes (save %s)\n", len(g.Nodes), g.WastedSize())
@@ -340,7 +269,7 @@ func trim(delete bool, withs ...string) error {
 			}
 		}
 		count++
-		waste = waste + int64(g.WastedSize())
+		waste = waste + int64(WastedSize(g))
 	}
 
 	fmt.Fprintf(output, "%d duplicated groups, totalling %s wasted space\n", count, hashsnap.ByteSize(waste))

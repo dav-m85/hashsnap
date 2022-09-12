@@ -64,9 +64,24 @@ func TestTrimWithDuplicate(t *testing.T) {
 	t2 := readTree(is, "d2")
 
 	hg := t1.Trim(t2)
+	hg.PruneSingleTreeGroups()
 	nodes := hg.Select(t1)
 
 	is.Equal(len(nodes), 0)
+}
+
+func TestSelfTrim(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("The code did not panic")
+		}
+	}()
+
+	t1 := NewTree()
+	t1.info = new(Info)
+
+	t1.Trim(t1)
+
 }
 
 type N []*Node

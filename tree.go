@@ -19,6 +19,7 @@ type Info struct {
 	CreatedAt time.Time
 	Version   int
 	Nonce     uuid.UUID
+	Hostname  string
 }
 
 func (i *Info) String() string {
@@ -50,6 +51,15 @@ func ReadTree(r io.Reader) (*Tree, error) { // options ?
 
 	t.info = i
 
+	err := DecodeNodes(dec, func(n *Node) error {
+		t.Add(n)
+		return nil
+	})
+
+	return t, err
+}
+
+func DecodeNodes(dec *gob.Decoder, hf func(*Node) error) error {
 	for {
 		n := new(Node)
 		err := dec.Decode(n)
@@ -57,12 +67,14 @@ func ReadTree(r io.Reader) (*Tree, error) { // options ?
 			break
 		}
 		if err != nil {
-			return t, err
+			return err
 		}
-		t.Add(n)
+		err = hf(n)
+		if err != nil {
+			return err
+		}
 	}
-
-	return t, nil
+	return nil
 }
 
 func (t *Tree) Add(n *Node) {
@@ -102,6 +114,9 @@ func (t *Tree) Trim(withs ...*Tree) HashGroup {
 		matches.Add(n)
 	}
 	for _, tx := range withs {
+		if t.info.Nonce == tx.info.Nonce {
+			panic("cannot trim with self")
+		}
 		for _, m := range tx.nodes {
 			matches.Intersect(m)
 		}
@@ -146,7 +161,23 @@ func (r HashGroup) Intersect(n *Node) {
 	}
 }
 
-// Select all nodes in given tree
+func (r HashGroup) PruneSingleTreeGroups() {
+	for hash, g := range r {
+		if len(g) <= 1 {
+			delete(r, hash)
+			continue
+		}
+		ts := make(map[uuid.UUID]struct{})
+		for _, n := range g {
+			ts[n.tree.info.Nonce] = struct{}{}
+		}
+		if len(ts) <= 1 {
+			delete(r, hash)
+		}
+	}
+}
+
+// Select all nodes in given tree, when
 func (r HashGroup) Select(t *Tree) (ns []*Node) {
 	for _, g := range r {
 		for _, n := range g {

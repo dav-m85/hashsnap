@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/fs"
 	"log"
+	"os"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -164,12 +165,18 @@ func computeHash(n NodeP, spy io.Writer) error {
 func Snapshot(root string, out, spy io.Writer) (c int) {
 	enc := gob.NewEncoder(out)
 
+	hs, err := os.Hostname()
+	if err != nil {
+		hs = "localhost"
+		log.Printf("Cannot get hostname: %s", err)
+	}
 	// Write info node
-	err := enc.Encode(Info{
+	err = enc.Encode(Info{
 		Version:   1,
 		RootPath:  root,
 		CreatedAt: time.Now(),
 		Nonce:     uuid.New(),
+		Hostname:  hs,
 	})
 	if err != nil {
 		panic(err)
