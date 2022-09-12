@@ -47,13 +47,21 @@ func TestSnapshot(t *testing.T) {
 	FS = rootFS
 
 	r, w := io.Pipe()
+	var c int
 	go func() {
-		Snapshot("/.", w, io.Discard)
+		c = Snapshot("dir1", w, io.Discard)
 		w.Close()
 	}()
 
 	dut, err := ReadTree(r)
 	is.NoErr(err)
+	is.Equal(c, 3)
 
-	t.Logf("%#v", dut)
+	logTree(t, dut)
+}
+
+func logTree(t *testing.T, tree *Tree) {
+	for id, n := range tree.nodes {
+		t.Logf("%d %s\n", id, n)
+	}
 }

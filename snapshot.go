@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/gob"
-	"fmt"
 	"io"
 	"io/fs"
 	"log"
@@ -28,17 +27,13 @@ var DefaultSkipper = func(fs.FileInfo) bool {
 // It generates a stream of *Nodes to be used.
 // Once the walker has explored all files, it closes the emitting channel.
 // Each node receives a unique increment id, starting at 1.
-func WalkFS(ctx context.Context, skip Skipper, root string) (<-chan NodeP, error) {
+func WalkFS(ctx context.Context, skip Skipper, root string) <-chan NodeP {
 	lstat := FS.(fs.StatFS).Stat
 
 	out := make(chan NodeP)
 
 	if skip == nil {
 		skip = DefaultSkipper
-	}
-
-	if !filepath.IsAbs(root) {
-		return nil, fmt.Errorf("wd should be absolute: %s", root)
 	}
 
 	go func() {
@@ -99,7 +94,7 @@ func WalkFS(ctx context.Context, skip Skipper, root string) (<-chan NodeP, error
 		}
 	}()
 
-	return out, nil
+	return out
 }
 
 // readDirNames reads the directory named by dirname and returns
@@ -188,16 +183,11 @@ func Snapshot(root string, out, spy io.Writer) (c int) {
 		return !n.Mode().IsDir() && (!n.Mode().IsRegular() || n.Size() == 0 || n.Name() == STATE_NAME)
 	}
 
-	// ⛲️ Source by exploring all nodes
-	files, err := WalkFS(ctx, skipper, root)
-	if err != nil {
-		panic(err)
-	}
-
 	// TODO dirs should skip hashing...
 
+	// ⛲️ Source by exploring all nodes
 	// 🏭 Hash them all and write hashes to statefile
-	for x := range Hasher(ctx, root, spy, files) {
+	for x := range Hasher(ctx, root, spy, WalkFS(ctx, skipper, root)) {
 		c++
 		if err := enc.Encode(x); err != nil {
 			panic(err)

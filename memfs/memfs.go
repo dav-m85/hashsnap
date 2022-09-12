@@ -103,6 +103,8 @@ func (rootFS *FS) getDir(path string) (*dir, error) {
 	return cur, nil
 }
 
+var _ fs.StatFS = &FS{}
+
 func (rootFS *FS) Stat(path string) (os.FileInfo, error) {
 	f, err := rootFS.Open(path)
 	if err != nil {
@@ -284,6 +286,38 @@ func (d *fhDir) Read(b []byte) (int, error) {
 
 func (d *fhDir) Close() error {
 	return nil
+}
+
+var _ fs.ReadDirFS = &FS{}
+
+func (rootFS *FS) ReadDir(name string) ([]fs.DirEntry, error) {
+	if !fs.ValidPath(name) {
+		return nil, &fs.PathError{
+			Op:   "open",
+			Path: name,
+			Err:  fs.ErrInvalid,
+		}
+	}
+
+	if name == "." {
+		// root dir
+		name = ""
+	}
+
+	child, err := rootFS.get(name)
+	if err != nil {
+		return nil, err
+	}
+
+	switch cc := child.(type) {
+	case *dir:
+		handle := &fhDir{
+			dir: cc,
+		}
+		return handle.ReadDir(-1)
+	}
+
+	return nil, fmt.Errorf("unexpected file type in fs: %s: %w", name, fs.ErrInvalid)
 }
 
 func (d *fhDir) ReadDir(n int) ([]fs.DirEntry, error) {

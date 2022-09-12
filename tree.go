@@ -30,8 +30,15 @@ type Tree struct {
 	children map[int][]int
 }
 
+func NewTree() *Tree {
+	return &Tree{
+		nodes:    make(map[int]*Node),
+		children: make(map[int][]int),
+	}
+}
+
 func ReadTree(r io.Reader) (*Tree, error) { // options ?
-	t := new(Tree)
+	t := NewTree()
 
 	dec := gob.NewDecoder(r)
 
