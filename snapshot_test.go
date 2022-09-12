@@ -1,26 +1,5 @@
 package hashsnap
 
-// var F func(t *Tree, path string, content string)
-// var expect func(t *Tree, path string)
-// var deleted func(t *Tree, path string)
-
-// func TestTrim() {
-// 	x := NewTree(&Info{})
-// 	F(x, "a", "a")
-// 	F(x, "a2", "a")
-// 	F(x, "b", "b")
-
-// 	y := NewTree(&Info{})
-// 	F(y, "b", "b")
-
-// 	// trim x with y
-// 	// Make sure a duplicate file in x won't get deleted by trimming it without that file
-// 	// here y{b} deletes x{b} but not x{a},x{a2} which are duplicates...
-// 	expect(x, "a")
-// 	expect(x, "a2")
-// 	deleted(x, "b")
-// }
-
 import (
 	"io"
 	"testing"
@@ -29,39 +8,87 @@ import (
 	"github.com/matryer/is"
 )
 
-func TestSnapshot(t *testing.T) {
+func readTree(is *is.I, root string) (tr *Tree) {
+	r, w := io.Pipe()
+	go func() {
+		Snapshot(root, w, io.Discard)
+		w.Close()
+	}()
+
+	tr, err := ReadTree(r)
+	is.NoErr(err)
+	return
+}
+
+func TestBasicTrim(t *testing.T) {
 	is := is.New(t)
 
 	rootFS := memfs.New()
 
-	err := rootFS.MkdirAll("dir1/dir2", 0777)
-	if err != nil {
-		panic(err)
-	}
+	is.NoErr(rootFS.MkdirAll("d1/d2", 0777))
+	is.NoErr(rootFS.WriteFile("d1/d2/f1.txt", []byte("abc"), 0755))
+	is.NoErr(rootFS.WriteFile("d1/d2/f1dup.txt", []byte("abc"), 0755)) // == f1
 
-	err = rootFS.WriteFile("dir1/dir2/f1.txt", []byte("incinerating-unsubstantial"), 0755)
-	if err != nil {
-		panic(err)
-	}
+	is.NoErr(rootFS.MkdirAll("d2/d3", 0777))
+	is.NoErr(rootFS.WriteFile("d2/d3/f2.txt", []byte("abc"), 0755)) // == f1
 
 	FS = rootFS
 
-	r, w := io.Pipe()
-	var c int
-	go func() {
-		c = Snapshot("dir1", w, io.Discard)
-		w.Close()
-	}()
+	t1 := readTree(is, "d1")
+	t2 := readTree(is, "d2")
 
-	dut, err := ReadTree(r)
-	is.NoErr(err)
-	is.Equal(c, 3)
+	hg := t1.Trim(t2)
+	nodes := hg.Select(t1)
 
-	logTree(t, dut)
+	N(nodes).Equal(is, "f1.txt", "f1dup.txt")
+	is.True(!N(nodes).Contains("f2.txt"))
 }
 
-func logTree(t *testing.T, tree *Tree) {
-	for id, n := range tree.nodes {
-		t.Logf("%d %s\n", id, n)
+// TestTrimWithDuplicate makes sure that a duplicated file in t1 won't get trimmed
+// if not present in t2 (this is the job of dup)
+func TestTrimWithDuplicate(t *testing.T) {
+	is := is.New(t)
+
+	rootFS := memfs.New()
+
+	is.NoErr(rootFS.MkdirAll("d1/d2", 0777))
+	is.NoErr(rootFS.WriteFile("d1/d2/f1.txt", []byte("abc"), 0755))
+	is.NoErr(rootFS.WriteFile("d1/d2/f1dup.txt", []byte("abc"), 0755)) // == f1
+
+	is.NoErr(rootFS.MkdirAll("d2/d3", 0777))
+	is.NoErr(rootFS.WriteFile("d2/d3/f2.txt", []byte("def"), 0755)) // != f1
+
+	FS = rootFS
+
+	t1 := readTree(is, "d1")
+	t2 := readTree(is, "d2")
+
+	hg := t1.Trim(t2)
+	nodes := hg.Select(t1)
+
+	is.Equal(len(nodes), 0)
+}
+
+type N []*Node
+
+func (ns N) Contains(name string) bool {
+	for _, n := range ns {
+		if n.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func (ns N) Equal(is *is.I, name ...string) {
+	is.Equal(len(ns), len(name))
+	for _, n := range name {
+		is.True(ns.Contains(n))
 	}
 }
+
+// func logTree(t *testing.T, tree *Tree) {
+// 	for id, n := range tree.nodes {
+// 		t.Logf("%d %s\n", id, n)
+// 	}
+// }

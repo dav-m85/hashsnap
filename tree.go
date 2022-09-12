@@ -1,6 +1,7 @@
 package hashsnap
 
 import (
+	"crypto/sha1"
 	"encoding/gob"
 	"fmt"
 	"io"
@@ -97,12 +98,90 @@ func (t *Tree) AbsPath(n *Node) (path string) {
 
 func (t *Tree) Trim(withs ...*Tree) HashGroup {
 	matches := make(HashGroup)
-	return matches
-	// if err := Each(NewTreeIterator(cur), matches.Add); err != nil {
-	// 	return err
-	// }
-	// if err := Each(NewTreeIterator(x), matches.Intersect); err != nil {
-	// 	return err
-	// }
+	for _, n := range t.nodes {
+		matches.Add(n)
+	}
+	for _, tx := range withs {
+		for _, m := range tx.nodes {
+			matches.Intersect(m)
+		}
+	}
 
+	return matches
 }
+
+// HashGroup helps comparing Hashes pretty quickly
+type HashGroup map[[sha1.Size]byte][]*Node
+
+// Add a Node slice to HashGroup
+func (r HashGroup) Add(n *Node) {
+	if n.Mode.IsDir() {
+		return
+	}
+	if grp, ok := r[n.Hash]; ok {
+		size := r[n.Hash][0].Size
+		if size != n.Size {
+			panic("collision, same hash but different size")
+		}
+		// matching group found; add this file to existing group
+		r[n.Hash] = append(grp, n)
+	} else {
+		// create new group in map
+		r[n.Hash] = []*Node{n}
+	}
+}
+
+// Intersect adds nodes if their hash is already present (does not create new groups)
+func (r HashGroup) Intersect(n *Node) {
+	if n.Mode.IsDir() {
+		return
+	}
+	if grp, ok := r[n.Hash]; ok {
+		size := r[n.Hash][0].Size
+		if size != n.Size {
+			panic("collision, same hash but different size")
+		}
+		// matching group found; add this file to existing group
+		r[n.Hash] = append(grp, n)
+	}
+}
+
+// Select all nodes in given tree
+func (r HashGroup) Select(t *Tree) (ns []*Node) {
+	for _, g := range r {
+		for _, n := range g {
+			if n.tree == t {
+				ns = append(ns, n)
+			}
+		}
+	}
+	return
+}
+
+type WastedSize []*Node
+
+func (ws WastedSize) String() ByteSize {
+	if ws == nil || len(ws) < 1 {
+		return 0
+	} else {
+		return ByteSize(ws[0].Size * int64(len(ws)-1))
+	}
+}
+
+// func (r HashGroup) PrintDetails(verbose bool) {
+// 	var count int64
+// 	var waste int64
+
+// 	for _, g := range r {
+// 		if len(g.Nodes) < 2 {
+// 			continue
+// 		}
+// 		if verbose {
+// 			fmt.Fprintln(output, g)
+// 		}
+// 		count++
+// 		waste = waste + int64(g.WastedSize())
+// 	}
+
+// 	fmt.Fprintf(output, "%d duplicated groups, totalling %s wasted space\n", count, ByteSize(waste))
+// }
