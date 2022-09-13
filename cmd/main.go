@@ -41,7 +41,7 @@ var (
 	infoCmd   = flag.NewFlagSet("info", flag.ExitOnError)
 	helpCmd   = flag.NewFlagSet("help", flag.ExitOnError)
 	trimCmd   = flag.NewFlagSet("trim", flag.ExitOnError)
-	dedupCmd  = flag.NewFlagSet("dedup", flag.ExitOnError)
+	checkCmd  = flag.NewFlagSet("check", flag.ExitOnError)
 )
 
 var subcommands = map[string]*flag.FlagSet{
@@ -49,7 +49,7 @@ var subcommands = map[string]*flag.FlagSet{
 	helpCmd.Name():   helpCmd,
 	infoCmd.Name():   infoCmd,
 	trimCmd.Name():   trimCmd,
-	dedupCmd.Name():  dedupCmd,
+	checkCmd.Name():  checkCmd,
 }
 
 func setupCommonFlags() {
@@ -69,9 +69,9 @@ func main() {
 	}
 
 	createCmd.BoolVar(&verbose, "verbose", false, "displays hashing speed")
-	infoCmd.BoolVar(&verbose, "verbose", false, "enumerates all files (high-mem)")
-	trimCmd.BoolVar(&verbose, "verbose", false, "list all groups")
-	trimCmd.BoolVar(&delete, "delete", false, "really deletes stuff")
+	// infoCmd.BoolVar(&verbose, "verbose", false, "enumerates all files (high-mem)")
+	// trimCmd.BoolVar(&verbose, "verbose", false, "list all groups")
+	// trimCmd.BoolVar(&delete, "delete", false, "really deletes stuff")
 
 	cm := subcommands[os.Args[1]]
 	if cm == nil {
@@ -115,8 +115,8 @@ func main() {
 	case infoCmd.Name():
 		err = info()
 
-	// case dedupCmd.Name():
-	// 	err = dedup.Dedup(opt.State, verbose, cm.Args()...)
+	case checkCmd.Name():
+		err = check()
 
 	case trimCmd.Name():
 		if len(cm.Args()) == 0 {
@@ -135,15 +135,15 @@ func main() {
 	}
 }
 
-// dedup     Good old deduplication, with man guards
 func help() {
 	fmt.Print(`usage: hsnap <command> [<args>]
 
 These are common hsnap commands used in various situations:
 
 create    Make a snapshot for current working directory
-info      Detail content of a snapshot
-trim      Remove local files that are already present in provided snapshots
+info      Basic information about current snapshot
+check     Existence of files in current snapshot
+trim      Remove local files that are present in provided snapshots
 help      This help message
 `)
 	os.Exit(0)
@@ -181,14 +181,30 @@ func create(spy io.Writer) error {
 
 	c := hashsnap.Snapshot(wd, f, spy)
 
-	fmt.Fprintf(output, "Encoded %d files", c)
+	fmt.Fprintf(output, "Encoded %d files\n", c)
 
+	return nil
+}
+
+func check() error {
+	cur, err := readTree(spath)
+	if err != nil {
+		return err
+	}
+	missing := cur.Check()
+	if len(missing) == 0 {
+		fmt.Fprint(output, "Snapshot is complete\n")
+		return nil
+	}
+	for _, n := range missing {
+		fmt.Fprintf(output, "%s\n", n.Path())
+	}
+	fmt.Fprintf(output, "\nMissing %d files\n", len(missing))
 	return nil
 }
 
 // info opens an hsnap, read its info header and counts how many nodes it has
 // it does not check for sanity (like child has a valid parent and so on)
-// TODO feature: check nodes exists
 func info() error {
 	f, err := os.OpenFile(spath, os.O_RDONLY, 0666)
 	if err != nil {
@@ -207,8 +223,6 @@ func info() error {
 	// Cycle through all nodes
 	var size int64
 	var count int64
-
-	// fmt.Fprintf(output, "\t%s %s\n", color.Green+t.RelPath(n)+color.Reset, hashsnap.ByteSize(n.Size)) // children is not up to date here
 
 	err = hashsnap.DecodeNodes(dec, func(n *hashsnap.Node) error {
 		size = size + n.Size
@@ -250,10 +264,6 @@ func trim(delete bool, withs ...string) error {
 	var waste int64
 
 	for _, ma := range matches {
-
-		// if verbose
-		// if delete
-
 		var str strings.Builder
 		in, out := hashsnap.SplitNodes(cur, ma)
 
@@ -273,6 +283,7 @@ func trim(delete bool, withs ...string) error {
 
 		fmt.Fprintln(output, str.String())
 
+		// if delete
 		// if n.Tree() == cur {
 		// 	// err := os.Remove(n.Tree().AbsPath(n))
 		// }

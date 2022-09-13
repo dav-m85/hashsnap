@@ -1,71 +1,40 @@
 > Work in progress
 
 # hashsnap
-Deduplicate files using snapshots, possibly from separate storage.
+Remove files ("trim") that have duplicates elsewhere.
 
-Usual approach for deduplicating files is "move all files on one storage, and run dedup there". What happens if no storage is big enough to hold all dedup files? Use snapshots.
+By using space-savvy hash snapshots, *hashsnap* can perform deduplication across
+multiple filesystems without having them all accessed at the same time.
 
-Hashsnap generates hashed snapshots, which are space-savvy files that can be used to dedup on other storages without having all the data on it.
+In a nutshell:
+- Run ```hashsnap create``` on some NAS
+- Copy the generated ```.hsnap``` file on your localhost, rename it ```nas.hsnap```
+- Run ```hashsnap trim nas.hsnap -delete``` to have all files that are also
+on the NAS removed from your localhost
+
+Generated .hsnap files are small: 6GB of results in a ~360k hashsnap file...
+
+... and fast to generate: on my quadcore+SSD, it takes around 2min to hash said 6GB.
 
 ## Usage
-Say you have a directory `somedir`, and want to deduplicate it.
-
-    cd somedir
-    # Creates an ".hsnap" file in somedir
-    hashsnap create
-
-    # State of hsnap in current directory
-    hashsnap info [./some/dir/inside/somedir]
-
-Now, say you have a NAS where you have already stored a few files of somedir, and have
-them removed of somedir
-
-    # On the NAS
-    hashsnap create nas.hsnap
-
-    # In somedir
-    hashsnap trim nas.hsnap
-
-Also deduplication works with:
-
-    hashsnap dedup --keep ./somedir (will stop running on first undecided pair)
+    
+    hashsnap help
+    hashsnap <cmd> -help
 
 Running on a NAS without screen/tmux and forgetting about it:
 
     nohup hashsnap... </dev/null >hashsnap.log 2>&1 &
 
-## Bench
-On my quadcore + SSD workstation, it takes around 2min to hash 6GB of data, resulting in a ~360k hashsnap file.
+Exploring easily an info result:
+
+    hashsnap trim nas.hsnap | less -R
 
 ## TODO
-- be able to resume a hashing, by leveraging file existence.
-- be able to "check" a snapshot, for file existence.
-- store path structure along with file, in order to make smart decisions when deleting.
-- test extensively.
-- BUG when a file is duplicated and --with is used
-- CPU looks to be the bottleneck on create command. However, hard to not hash all the files, since we
-want to compare with distant files. Find maybe a smarter way of hashing ? different algo ?
-
-scoring de similitude des emplacements de merge
-nb de fichier identique
-
-et swap file pour l'dit in place des fichiers hsnap
+- be able to resume a hashing, by leveraging file existence,
+- test extensively,
+- dedup without trimming (perhaps, as fdupes does it already quite well),
+- cleanup the code.
 
 ## Inspiration
 - [mathieuancelin/duplicates](https://github.com/mathieuancelin/duplicates/blob/master/duplicates.go)
 - [SeeSpotRun gist](https://gist.github.com/SeeSpotRun/456b88424841d7ae735f)
-
-## Principle
-Say you have two disks, Sanston and Kingdisk, with following files:
-
-Sanston
-    ./.hsnap
-    ./foo
-    ./bar/qwe
-
-Kingdisk
-    ./.hsnap
-    ./qwe
-
-TBC
-

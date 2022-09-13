@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io"
+	"io/fs"
 	"path/filepath"
 	"time"
 
@@ -26,6 +27,7 @@ func (i *Info) String() string {
 	return fmt.Sprintf("%s@%s (v%d %s)", i.Hostname, i.RootPath, i.Version, i.Nonce.String()[:8])
 }
 
+// Tree structure that holds a filesystem
 type Tree struct {
 	Info     *Info
 	Name     string
@@ -40,7 +42,8 @@ func NewTree() *Tree {
 	}
 }
 
-func ReadTree(r io.Reader) (*Tree, error) { // options ?
+// ReadTree into a Tree, usually from a fs.Open
+func ReadTree(r io.Reader) (*Tree, error) {
 	t := NewTree()
 
 	dec := gob.NewDecoder(r)
@@ -128,6 +131,17 @@ func (t *Tree) Trim(withs ...*Tree) HashGroup {
 	}
 
 	return matches
+}
+
+func (t *Tree) Check() (missing Nodes) {
+	for _, n := range t.nodes {
+		lstat := FS.(fs.StatFS).Stat
+		_, err := lstat(n.Path())
+		if err != nil {
+			missing = append(missing, n)
+		}
+	}
+	return
 }
 
 // HashGroup helps comparing Hashes pretty quickly
