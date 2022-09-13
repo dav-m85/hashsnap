@@ -22,6 +22,13 @@ type Node struct {
 	tree         *Tree
 }
 
+func (n *Node) Path() string {
+	if n.tree == nil {
+		return ""
+	}
+	return n.tree.AbsPath(n)
+}
+
 func (n *Node) Tree() *Tree {
 	return n.tree
 }

@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/dav-m85/hashsnap"
 	bar "github.com/schollz/progressbar/v3"
@@ -53,7 +54,7 @@ var subcommands = map[string]*flag.FlagSet{
 
 func setupCommonFlags() {
 	for _, fs := range subcommands {
-		fs.StringVar(&spath, "statefile", "", "Use a different state file")
+		fs.StringVar(&spath, "hsnap", "", "Use a different hsnap file")
 		fs.StringVar(&wd, "wd", "", "Use a different working directory")
 	}
 }
@@ -227,51 +228,56 @@ func trim(delete bool, withs ...string) error {
 	if err != nil {
 		return err
 	}
+	cur.Name = "a"
+	fmt.Fprintf(output, color.Red+"%s %s\n"+color.Reset, cur.Name, cur.Info)
 
 	var trees []*hashsnap.Tree
-	for _, w := range withs {
+	for k, w := range withs {
 		x, err := readTree(w)
 		if err != nil {
 			return err
 		}
 		trees = append(trees, x)
+		x.Name = string("bcdefghijkl"[k])
+		fmt.Fprintf(output, color.Green+"%s %s\n"+color.Reset, x.Name, x.Info)
 	}
 
 	matches := cur.Trim(trees...)
 	matches.PruneSingleTreeGroups()
 
-	var count int64
+	var count int
+	var groups int
 	var waste int64
 
-	for _, g := range matches {
+	for _, ma := range matches {
 
-		if verbose {
+		// if verbose
+		// if delete
 
-			s := fmt.Sprintf("%d nodes (save %s)\n", len(g.Nodes), g.WastedSize())
-			for _, n := range g.Nodes {
-				if n.Tree() == cur {
-					s = s + fmt.Sprintf(color.Red+"\t- %s [%s]\n"+color.Reset, n, n.Tree().RelPath(n))
-				} else {
-					s = s + fmt.Sprintf(color.Green+"\t+ %s\n"+color.Reset, n)
-				}
-			}
+		var str strings.Builder
+		in, out := hashsnap.SplitNodes(cur, ma)
 
-			fmt.Fprintln(output, s)
+		count = count + len(in)
+		bs := hashsnap.Nodes(in).ByteSize()
+		waste = waste + int64(bs)
+		groups++
+		str.WriteString(fmt.Sprintf("%d files (wasting %s)\n", len(in), bs))
+
+		for _, n := range in {
+			str.WriteString(fmt.Sprintf(color.Red+"\t-%s %s\n"+color.Reset, n.Tree().Name, n.Path()))
 		}
-		if delete {
-			for _, n := range g.Nodes {
-				if n.Tree() == cur {
-					err := os.Remove(n.Tree().AbsPath(n))
-					if err != nil {
-						return err
-					}
-				}
-			}
+		for _, n := range out {
+			str.WriteString(fmt.Sprintf(color.Green+"\t+%s %s\n"+color.Reset, n.Tree().Name, n.Path()))
 		}
-		count++
-		waste = waste + int64(WastedSize(g))
+		str.WriteString("\n")
+
+		fmt.Fprintln(output, str.String())
+
+		// if n.Tree() == cur {
+		// 	// err := os.Remove(n.Tree().AbsPath(n))
+		// }
 	}
 
-	fmt.Fprintf(output, "%d duplicated groups, totalling %s wasted space\n", count, hashsnap.ByteSize(waste))
+	fmt.Fprintf(output, "%d duplicated groups, totalling %s wasted space in %d files\n", groups, hashsnap.ByteSize(waste), count)
 	return nil
 }

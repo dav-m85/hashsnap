@@ -7,12 +7,7 @@ import (
 	"path/filepath"
 )
 
-// package state retrieves current hsnap file, in current
-// or parent dirs
-
-const STATE_NAME = ".hsnap"
-
-// LookupFrom traverses dir ancestors looking for a StateFile.
+// LookupFrom traverses dir ancestors looking for a Snapshot file.
 func LookupFrom(dir string) (string, error) {
 	if !path.IsAbs(dir) {
 		return "", fmt.Errorf("statepath %s is not absolute", dir)

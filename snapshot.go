@@ -16,6 +16,9 @@ import (
 	"github.com/google/uuid"
 )
 
+const STATE_NAME = ".hsnap"
+const VERSION = 1
+
 // Skipper indicate a Node should be skipped by returning true
 type Skipper func(fs.FileInfo) bool
 
@@ -172,7 +175,7 @@ func Snapshot(root string, out, spy io.Writer) (c int) {
 	}
 	// Write info node
 	err = enc.Encode(Info{
-		Version:   1,
+		Version:   VERSION,
 		RootPath:  root,
 		CreatedAt: time.Now(),
 		Nonce:     uuid.New(),
@@ -182,7 +185,7 @@ func Snapshot(root string, out, spy io.Writer) (c int) {
 		panic(err)
 	}
 
-	// Pipeline context... cancelling it cancels them all
+	// Context for the pipelines, cancel the workers
 	ctx, cleanup := context.WithCancel(context.Background())
 	defer cleanup()
 
@@ -190,10 +193,7 @@ func Snapshot(root string, out, spy io.Writer) (c int) {
 		return !n.Mode().IsDir() && (!n.Mode().IsRegular() || n.Size() == 0 || n.Name() == STATE_NAME)
 	}
 
-	// TODO dirs should skip hashing...
-
-	// ⛲️ Source by exploring all nodes
-	// 🏭 Hash them all and write hashes to statefile
+	// Source by exploring all nodes and hash them
 	for x := range Hasher(ctx, root, spy, WalkFS(ctx, skipper, root)) {
 		c++
 		if err := enc.Encode(x); err != nil {

@@ -23,11 +23,12 @@ type Info struct {
 }
 
 func (i *Info) String() string {
-	return fmt.Sprintf("v%d %s (%s)", i.Version, i.RootPath, i.Nonce.String()[:8])
+	return fmt.Sprintf("%s@%s (v%d %s)", i.Hostname, i.RootPath, i.Version, i.Nonce.String()[:8])
 }
 
 type Tree struct {
-	info     *Info
+	Info     *Info
+	Name     string
 	nodes    map[int]*Node
 	children map[int][]int
 }
@@ -49,7 +50,11 @@ func ReadTree(r io.Reader) (*Tree, error) { // options ?
 		return t, err
 	}
 
-	t.info = i
+	if i.Version != VERSION {
+		panic("Not version 1")
+	}
+
+	t.Info = i
 
 	err := DecodeNodes(dec, func(n *Node) error {
 		t.Add(n)
@@ -94,18 +99,18 @@ func (t *Tree) RelPath(n *Node) (path string) {
 		panic("wrong tree used for resolving path")
 	}
 	on := n
-	for n.ID > 0 {
+	for n.ID > 0 && n.ParentID != 0 {
 		path = filepath.Join(n.Name, path)
 		var ok bool
 		if n, ok = t.nodes[n.ParentID]; !ok {
-			panic(fmt.Sprintf("cannot resolve full path for %s, missing parent for %s", on, n))
+			panic(fmt.Sprintf("cannot resolve full path for %s, missing parent for %s in %s", on, n, t.Info))
 		}
 	}
 	return
 }
 
 func (t *Tree) AbsPath(n *Node) (path string) {
-	return filepath.Join(t.info.RootPath, t.RelPath(n))
+	return filepath.Join(t.Info.RootPath, t.RelPath(n))
 }
 
 func (t *Tree) Trim(withs ...*Tree) HashGroup {
@@ -114,7 +119,7 @@ func (t *Tree) Trim(withs ...*Tree) HashGroup {
 		matches.Add(n)
 	}
 	for _, tx := range withs {
-		if t.info.Nonce == tx.info.Nonce {
+		if t.Info.Nonce == tx.Info.Nonce {
 			panic("cannot trim with self")
 		}
 		for _, m := range tx.nodes {
@@ -169,7 +174,7 @@ func (r HashGroup) PruneSingleTreeGroups() {
 		}
 		ts := make(map[uuid.UUID]struct{})
 		for _, n := range g {
-			ts[n.tree.info.Nonce] = struct{}{}
+			ts[n.tree.Info.Nonce] = struct{}{}
 		}
 		if len(ts) <= 1 {
 			delete(r, hash)
@@ -189,30 +194,25 @@ func (r HashGroup) Select(t *Tree) (ns []*Node) {
 	return
 }
 
-type WastedSize []*Node
+type Nodes []*Node
 
-func (ws WastedSize) String() ByteSize {
-	if ws == nil || len(ws) < 1 {
+func (ns Nodes) ByteSize() ByteSize {
+	if ns == nil || len(ns) < 1 {
 		return 0
 	} else {
-		return ByteSize(ws[0].Size * int64(len(ws)-1))
+		return ByteSize(ns[0].Size * int64(len(ns)))
 	}
 }
 
-// func (r HashGroup) PrintDetails(verbose bool) {
-// 	var count int64
-// 	var waste int64
-
-// 	for _, g := range r {
-// 		if len(g.Nodes) < 2 {
-// 			continue
-// 		}
-// 		if verbose {
-// 			fmt.Fprintln(output, g)
-// 		}
-// 		count++
-// 		waste = waste + int64(g.WastedSize())
-// 	}
-
-// 	fmt.Fprintf(output, "%d duplicated groups, totalling %s wasted space\n", count, ByteSize(waste))
-// }
+// SplitNodes by tree appartenance
+// If owning tree is t, then node is in, else is out
+func SplitNodes(t *Tree, ns []*Node) (in, out []*Node) {
+	for _, n := range ns {
+		if n.tree == t {
+			in = append(in, n)
+		} else {
+			out = append(out, n)
+		}
+	}
+	return
+}

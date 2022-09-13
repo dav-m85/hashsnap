@@ -78,7 +78,7 @@ func TestSelfTrim(t *testing.T) {
 	}()
 
 	t1 := NewTree()
-	t1.info = new(Info)
+	t1.Info = new(Info)
 
 	t1.Trim(t1)
 

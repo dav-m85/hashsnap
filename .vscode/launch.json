@@ -9,7 +9,7 @@
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "main.go",
+      "program": "cmd/main.go",
       "args": ["info", "-wd", "state"]
     },
     {
@@ -17,8 +17,17 @@
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "main.go",
+      "program": "cmd/main.go",
       "args": ["create", "-wd", "state"]
+    },
+    {
+      "name": "trim nas",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "cmd/main.go",
+      "args": ["trim", "-hsnap", "_archive/dumps/seagate.hsnap2", "_archive/dumps/nas_photo.hsnap2"],
+      "cwd": "${workspaceFolder}"
     }
   ]
 }
