@@ -43,7 +43,7 @@ func WalkFS(ctx context.Context, skip Skipper, root string) <-chan NodeP {
 	go func() {
 		defer close(out)
 
-		info, err := lstat(root) // var lstat = os.Lstat
+		info, err := lstat(root)
 		if err != nil {
 			log.Printf("Root node creation failed on %s: %s", root, err)
 			return
