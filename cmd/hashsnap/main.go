@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/gob"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -54,7 +55,7 @@ var subcommands = map[string]*flag.FlagSet{
 
 func setupCommonFlags() {
 	for _, fs := range subcommands {
-		fs.StringVar(&spath, "hsnap", "", "Use a different hsnap file")
+		fs.StringVar(&spath, "hsnap", "", "Use a different .hsnap file")
 		fs.StringVar(&wd, "wd", "", "Use a different working directory")
 	}
 }
@@ -69,9 +70,7 @@ func main() {
 	}
 
 	createCmd.BoolVar(&verbose, "verbose", false, "displays hashing speed")
-	// infoCmd.BoolVar(&verbose, "verbose", false, "enumerates all files (high-mem)")
-	// trimCmd.BoolVar(&verbose, "verbose", false, "list all groups")
-	// trimCmd.BoolVar(&delete, "delete", false, "really deletes stuff")
+	trimCmd.BoolVar(&delete, "delete", false, "really deletes stuff")
 
 	cm := subcommands[os.Args[1]]
 	if cm == nil {
@@ -259,36 +258,56 @@ func trim(delete bool, withs ...string) error {
 	matches := cur.Trim(trees...)
 	matches.PruneSingleTreeGroups()
 
-	var count int
+	var count, errc int
 	var groups int
 	var waste int64
 
-	for _, ma := range matches {
-		var str strings.Builder
-		in, out := hashsnap.SplitNodes(cur, ma)
+	if delete {
+		for _, ma := range matches {
+			in, _ := hashsnap.SplitNodes(cur, ma)
 
-		count = count + len(in)
-		bs := hashsnap.Nodes(in).ByteSize()
-		waste = waste + int64(bs)
-		groups++
-		str.WriteString(fmt.Sprintf("%d files (wasting %s)\n", len(in), bs))
+			groups++
 
-		for _, n := range in {
-			str.WriteString(fmt.Sprintf(color.Red+"\t-%s %s\n"+color.Reset, n.Tree().Name, n.Path()))
+			for _, n := range in {
+				p := n.Tree().AbsPath(n)
+				if err := os.Remove(p); err != nil {
+					fmt.Fprintf(output, "Cannot remove %s: %s\n", p, err)
+					errc++
+				} else {
+					fmt.Fprintf(output, "Removed %s\n", p)
+					count++
+					waste = waste + int64(hashsnap.Nodes(in).ByteSize())
+				}
+			}
+			fmt.Fprintf(output, "%d duplicated groups, removed %d files totalling %s wasted space, %d errors\n", groups, count, hashsnap.ByteSize(waste), errc)
 		}
-		for _, n := range out {
-			str.WriteString(fmt.Sprintf(color.Green+"\t+%s %s\n"+color.Reset, n.Tree().Name, n.Path()))
+	} else {
+		for _, ma := range matches {
+			var str strings.Builder
+			in, out := hashsnap.SplitNodes(cur, ma)
+
+			count = count + len(in)
+			bs := hashsnap.Nodes(in).ByteSize()
+			waste = waste + int64(bs)
+			groups++
+			str.WriteString(fmt.Sprintf("%d files (wasting %s)\n", len(in), bs))
+
+			for _, n := range in {
+				str.WriteString(fmt.Sprintf(color.Red+"\t-%s %s\n"+color.Reset, n.Tree().Name, n.Path()))
+			}
+			for _, n := range out {
+				str.WriteString(fmt.Sprintf(color.Green+"\t+%s %s\n"+color.Reset, n.Tree().Name, n.Path()))
+			}
+			str.WriteString("\n")
+
+			fmt.Fprintln(output, str.String())
+			fmt.Fprintf(output, "%d duplicated groups, totalling %s wasted space in %d files\n", groups, hashsnap.ByteSize(waste), count)
 		}
-		str.WriteString("\n")
-
-		fmt.Fprintln(output, str.String())
-
-		// if delete
-		// if n.Tree() == cur {
-		// 	// err := os.Remove(n.Tree().AbsPath(n))
-		// }
 	}
 
-	fmt.Fprintf(output, "%d duplicated groups, totalling %s wasted space in %d files\n", groups, hashsnap.ByteSize(waste), count)
+	if errc != 0 {
+		return errors.New("Delete got some errors while processing")
+	}
+
 	return nil
 }
