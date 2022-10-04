@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"text/tabwriter"
+	"time"
 
 	"github.com/dav-m85/hashsnap"
 	bar "github.com/schollz/progressbar/v3"
@@ -42,6 +44,7 @@ var (
 	infoCmd   = flag.NewFlagSet("info", flag.ExitOnError)
 	helpCmd   = flag.NewFlagSet("help", flag.ExitOnError)
 	trimCmd   = flag.NewFlagSet("trim", flag.ExitOnError)
+	listCmd   = flag.NewFlagSet("list", flag.ExitOnError)
 	checkCmd  = flag.NewFlagSet("check", flag.ExitOnError)
 )
 
@@ -50,6 +53,7 @@ var subcommands = map[string]*flag.FlagSet{
 	helpCmd.Name():   helpCmd,
 	infoCmd.Name():   infoCmd,
 	trimCmd.Name():   trimCmd,
+	listCmd.Name():   listCmd,
 	checkCmd.Name():  checkCmd,
 }
 
@@ -117,6 +121,13 @@ func main() {
 	case checkCmd.Name():
 		err = check()
 
+	case listCmd.Name():
+		if len(cm.Args()) == 0 {
+			err = list("")
+		} else {
+			err = list(cm.Args()...)
+		}
+
 	case trimCmd.Name():
 		if len(cm.Args()) == 0 {
 			err = fmt.Errorf("wrong usage")
@@ -143,6 +154,7 @@ create    Make a snapshot for current working directory
 info      Basic information about current snapshot
 check     Existence of files in current snapshot
 trim      Remove local files that are present in provided snapshots
+list
 help      This help message
 `)
 	os.Exit(0)
@@ -178,9 +190,11 @@ func create(spy io.Writer) error {
 	}
 	defer f.Close()
 
+	start := time.Now()
+
 	c := hashsnap.Snapshot(wd, f, spy)
 
-	fmt.Fprintf(output, "Encoded %d files\n", c)
+	fmt.Fprintf(output, "Encoded %d files in %s\n", c, time.Since(start))
 
 	return nil
 }
@@ -233,6 +247,45 @@ func info() error {
 	}
 
 	fmt.Fprintf(output, "Totalling %s and %d files\n", hashsnap.ByteSize(size), count)
+	return nil
+}
+
+func list(paths ...string) error {
+	cur, err := readTree(spath)
+	if err != nil {
+		return err
+	}
+	path := filepath.Join(paths...)
+	var at *hashsnap.Node
+	if path == "" {
+		at = cur.Root()
+	} else {
+		at = cur.Search(path)
+	}
+	if at == nil {
+		fmt.Fprintf(output, "Not found\n")
+		return nil
+	}
+
+	w := new(tabwriter.Writer)
+
+	// Format in tab-separated columns with a tab stop of 8.
+	w.Init(output, 0, 8, 0, '\t', 0)
+	children := cur.ChildrenOf(at)
+
+	// Sort per size, then per name
+	// Folders on top
+
+	for _, x := range children {
+		d := " "
+		if x.Mode.IsDir() {
+			d = "d"
+		}
+		fmt.Fprintf(w, "%s%d(%d)\t%s\t%s\n", d, x.ID, x.ParentID, hashsnap.ByteSize(x.Size), x.Name)
+	}
+
+	w.Flush()
+
 	return nil
 }
 

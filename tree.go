@@ -97,12 +97,44 @@ func (t *Tree) Add(n *Node) {
 	n.tree = t
 }
 
+func (t *Tree) Root() *Node {
+	if n, ok := t.nodes[0]; ok {
+		return n
+	}
+	if n, ok := t.nodes[1]; ok {
+		return n
+	}
+	panic("No root node in tree")
+}
+
+func (t *Tree) Search(path string) *Node {
+	for _, x := range t.nodes {
+		rel := t.RelPath(x)
+		if rel == path {
+			return x
+		}
+	}
+	return nil
+}
+
+func (t *Tree) ChildrenOf(n *Node) (ns Nodes) {
+	if n == nil {
+		panic("oops")
+	}
+	for _, x := range t.nodes {
+		if x.ParentID == n.ID {
+			ns = append(ns, x)
+		}
+	}
+	return
+}
+
 func (t *Tree) RelPath(n *Node) (path string) {
 	if n.tree != t {
 		panic("wrong tree used for resolving path")
 	}
 	on := n
-	for n.ID > 0 && n.ParentID != 0 {
+	for n.ID > 0 /*&& n.ParentID != 0*/ {
 		path = filepath.Join(n.Name, path)
 		var ok bool
 		if n, ok = t.nodes[n.ParentID]; !ok {

@@ -58,5 +58,9 @@ func Reset() int {
 }
 
 func (n Node) String() string {
-	return fmt.Sprintf("%d(%d) %s", n.ID, n.ParentID, n.Name)
+	d := " "
+	if n.Mode.IsDir() {
+		d = "d"
+	}
+	return fmt.Sprintf("%s%d(%d) %s", d, n.ID, n.ParentID, n.Name)
 }
