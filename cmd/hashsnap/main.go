@@ -20,6 +20,8 @@ import (
 var wd, spath string
 var delete bool
 
+var version string = "dev"
+
 // st, err := state.LookupFrom(opt.WD)
 // State         *state.StateFile
 
@@ -40,21 +42,23 @@ var color = struct {
 }
 
 var (
-	createCmd = flag.NewFlagSet("create", flag.ExitOnError)
-	infoCmd   = flag.NewFlagSet("info", flag.ExitOnError)
-	helpCmd   = flag.NewFlagSet("help", flag.ExitOnError)
-	trimCmd   = flag.NewFlagSet("trim", flag.ExitOnError)
-	listCmd   = flag.NewFlagSet("list", flag.ExitOnError)
-	checkCmd  = flag.NewFlagSet("check", flag.ExitOnError)
+	createCmd  = flag.NewFlagSet("create", flag.ExitOnError)
+	infoCmd    = flag.NewFlagSet("info", flag.ExitOnError)
+	helpCmd    = flag.NewFlagSet("help", flag.ExitOnError)
+	trimCmd    = flag.NewFlagSet("trim", flag.ExitOnError)
+	listCmd    = flag.NewFlagSet("ls", flag.ExitOnError)
+	checkCmd   = flag.NewFlagSet("check", flag.ExitOnError)
+	versionCmd = flag.NewFlagSet("version", flag.ExitOnError)
 )
 
 var subcommands = map[string]*flag.FlagSet{
-	createCmd.Name(): createCmd,
-	helpCmd.Name():   helpCmd,
-	infoCmd.Name():   infoCmd,
-	trimCmd.Name():   trimCmd,
-	listCmd.Name():   listCmd,
-	checkCmd.Name():  checkCmd,
+	createCmd.Name():  createCmd,
+	helpCmd.Name():    helpCmd,
+	infoCmd.Name():    infoCmd,
+	trimCmd.Name():    trimCmd,
+	listCmd.Name():    listCmd,
+	checkCmd.Name():   checkCmd,
+	versionCmd.Name(): versionCmd,
 }
 
 func setupCommonFlags() {
@@ -134,6 +138,9 @@ func main() {
 			break
 		}
 		err = trim(delete, cm.Args()...)
+
+	case versionCmd.Name():
+		fmt.Fprintln(output, version)
 
 	default:
 		log.Fatalf("Subcommand '%s' is not implemented!", cm.Name())
@@ -269,8 +276,7 @@ func list(paths ...string) error {
 
 	w := new(tabwriter.Writer)
 
-	// Format in tab-separated columns with a tab stop of 8.
-	w.Init(output, 0, 8, 0, '\t', 0)
+	w.Init(output, 5, 4, 1, '\t', tabwriter.AlignRight)
 	children := cur.ChildrenOf(at)
 
 	// Sort per size, then per name
