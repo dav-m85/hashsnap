@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -44,6 +45,7 @@ var color = struct {
 var (
 	createCmd  = flag.NewFlagSet("create", flag.ExitOnError)
 	infoCmd    = flag.NewFlagSet("info", flag.ExitOnError)
+	nodeCmd    = flag.NewFlagSet("node", flag.ExitOnError)
 	helpCmd    = flag.NewFlagSet("help", flag.ExitOnError)
 	trimCmd    = flag.NewFlagSet("trim", flag.ExitOnError)
 	listCmd    = flag.NewFlagSet("ls", flag.ExitOnError)
@@ -55,6 +57,7 @@ var subcommands = map[string]*flag.FlagSet{
 	createCmd.Name():  createCmd,
 	helpCmd.Name():    helpCmd,
 	infoCmd.Name():    infoCmd,
+	nodeCmd.Name():    nodeCmd,
 	trimCmd.Name():    trimCmd,
 	listCmd.Name():    listCmd,
 	checkCmd.Name():   checkCmd,
@@ -124,6 +127,9 @@ func main() {
 
 	case checkCmd.Name():
 		err = check()
+
+	case nodeCmd.Name():
+		err = node(cm.Args()...)
 
 	case listCmd.Name():
 		if len(cm.Args()) == 0 {
@@ -211,7 +217,7 @@ func check() error {
 	if err != nil {
 		return err
 	}
-	missing := cur.Check()
+	missing := cur.Check(wd)
 	if len(missing) == 0 {
 		fmt.Fprint(output, "Snapshot is complete\n")
 		return nil
@@ -368,5 +374,26 @@ func trim(delete bool, withs ...string) error {
 		return errors.New("Delete got some errors while processing")
 	}
 
+	return nil
+}
+
+func node(ids ...string) error {
+	cur, err := readTree(spath)
+	if err != nil {
+		return err
+	}
+
+	for _, id := range ids {
+		i, err := strconv.Atoi(id)
+		if err != nil {
+			return err
+		}
+		n := cur.Node(i)
+		if n == nil {
+			fmt.Fprintf(output, "%s not found\n", id)
+		} else {
+			fmt.Fprintf(output, "%s %s\n", n, cur.RelPath(n))
+		}
+	}
 	return nil
 }

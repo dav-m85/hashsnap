@@ -85,6 +85,10 @@ func DecodeNodes(dec *gob.Decoder, hf func(*Node) error) error {
 	return nil
 }
 
+func (t *Tree) Node(id int) *Node {
+	return t.nodes[id]
+}
+
 func (t *Tree) Add(n *Node) {
 	if _, ok := t.nodes[n.ID]; ok {
 		panic("Already added that node")
@@ -134,12 +138,17 @@ func (t *Tree) RelPath(n *Node) (path string) {
 		panic("wrong tree used for resolving path")
 	}
 	on := n
-	for n.ID > 0 /*&& n.ParentID != 0*/ {
-		path = filepath.Join(n.Name, path)
+	for n.ID > 0 {
+		var pn *Node
 		var ok bool
-		if n, ok = t.nodes[n.ParentID]; !ok {
-			panic(fmt.Sprintf("cannot resolve full path for %s, missing parent for %s in %s", on, n, t.Info))
+		if pn, ok = t.nodes[n.ParentID]; !ok {
+			if n.ParentID == 0 { // Some legacy hsnap need this
+				break
+			}
+			panic(fmt.Sprintf("cannot resolve full path for %s, missing parent for %s in %s", on, pn, t.Info))
 		}
+		path = filepath.Join(n.Name, path)
+		n = pn
 	}
 	return
 }
@@ -165,12 +174,14 @@ func (t *Tree) Trim(withs ...*Tree) HashGroup {
 	return matches
 }
 
-func (t *Tree) Check() (missing Nodes) {
+func (t *Tree) Check(prefix string) (missing Nodes) {
+	lstat := FS.(fs.StatFS).Stat
 	for _, n := range t.nodes {
-		lstat := FS.(fs.StatFS).Stat
-		_, err := lstat(n.Path())
+		p := filepath.Join(prefix, t.RelPath(n))
+		_, err := lstat(p)
 		if err != nil {
-			missing = append(missing, n)
+			panic(err)
+			// missing = append(missing, n)
 		}
 	}
 	return
