@@ -143,7 +143,7 @@ func (t *Tree) RelPath(n *Node) (path string) {
 		var ok bool
 		if pn, ok = t.nodes[n.ParentID]; !ok {
 			if n.ParentID == 0 { // Some legacy hsnap need this
-				break
+				return
 			}
 			panic(fmt.Sprintf("cannot resolve full path for %s, missing parent for %s in %s", on, pn, t.Info))
 		}

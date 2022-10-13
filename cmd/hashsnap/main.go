@@ -19,7 +19,7 @@ import (
 )
 
 var wd, spath string
-var delete bool
+var delete, quiet bool
 
 var version string = "dev"
 
@@ -82,6 +82,7 @@ func main() {
 
 	createCmd.BoolVar(&verbose, "verbose", false, "displays hashing speed")
 	trimCmd.BoolVar(&delete, "delete", false, "really deletes stuff")
+	trimCmd.BoolVar(&quiet, "quiet", false, "do not list stuff")
 
 	cm := subcommands[os.Args[1]]
 	if cm == nil {
@@ -123,7 +124,7 @@ func main() {
 		help()
 
 	case infoCmd.Name():
-		err = info()
+		err = info(cm.Args()...)
 
 	case checkCmd.Name():
 		err = check()
@@ -229,10 +230,24 @@ func check() error {
 	return nil
 }
 
+func info(paths ...string) error {
+	if paths == nil {
+		paths = []string{spath}
+	}
+	for _, x := range paths {
+		fmt.Fprintf(output, color.Blue+"%s\n"+color.Reset, x)
+		err := infoSingle(x)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // info opens an hsnap, read its info header and counts how many nodes it has
 // it does not check for sanity (like child has a valid parent and so on)
-func info() error {
-	f, err := os.OpenFile(spath, os.O_RDONLY, 0666)
+func infoSingle(path string) error {
+	f, err := os.OpenFile(path, os.O_RDONLY, 0666)
 	if err != nil {
 		return err
 	}
@@ -251,8 +266,10 @@ func info() error {
 	var count int64
 
 	err = hashsnap.DecodeNodes(dec, func(n *hashsnap.Node) error {
-		size = size + n.Size
-		count++
+		if !n.Mode.IsDir() {
+			size = size + n.Size
+			count++
+		}
 		return nil
 	})
 	if err != nil {
@@ -309,6 +326,8 @@ func trim(delete bool, withs ...string) error {
 	cur.Name = "a"
 	fmt.Fprintf(output, color.Red+"%s %s\n"+color.Reset, cur.Name, cur.Info)
 
+	cur.Info.RootPath = wd
+
 	var trees []*hashsnap.Tree
 	for k, w := range withs {
 		x, err := readTree(w)
@@ -344,8 +363,8 @@ func trim(delete bool, withs ...string) error {
 					waste = waste + int64(hashsnap.Nodes(in).ByteSize())
 				}
 			}
-			fmt.Fprintf(output, "%d duplicated groups, removed %d files totalling %s wasted space, %d errors\n", groups, count, hashsnap.ByteSize(waste), errc)
 		}
+		fmt.Fprintf(output, "%d duplicated groups, removed %d files totalling %s wasted space, %d errors\n", groups, count, hashsnap.ByteSize(waste), errc)
 	} else {
 		for _, ma := range matches {
 			var str strings.Builder
@@ -355,6 +374,9 @@ func trim(delete bool, withs ...string) error {
 			bs := hashsnap.Nodes(in).ByteSize()
 			waste = waste + int64(bs)
 			groups++
+			if quiet {
+				continue
+			}
 			str.WriteString(fmt.Sprintf("%d files (wasting %s)\n", len(in), bs))
 
 			for _, n := range in {
@@ -363,11 +385,10 @@ func trim(delete bool, withs ...string) error {
 			for _, n := range out {
 				str.WriteString(fmt.Sprintf(color.Green+"\t+%s %s\n"+color.Reset, n.Tree().Name, n.Path()))
 			}
-			str.WriteString("\n")
 
 			fmt.Fprintln(output, str.String())
-			fmt.Fprintf(output, "%d duplicated groups, totalling %s wasted space in %d files\n", groups, hashsnap.ByteSize(waste), count)
 		}
+		fmt.Fprintf(output, "%d duplicated groups, totalling %s wasted space in %d files\n", groups, hashsnap.ByteSize(waste), count)
 	}
 
 	if errc != 0 {
