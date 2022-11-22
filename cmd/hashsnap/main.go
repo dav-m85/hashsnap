@@ -324,7 +324,7 @@ func trim(delete bool, withs ...string) error {
 		return err
 	}
 	cur.Name = "a"
-	fmt.Fprintf(output, color.Red+"%s %s\n"+color.Reset, cur.Name, cur.Info)
+	fmt.Fprintf(output, color.Red+"%s %s (%s)\n"+color.Reset, cur.Name, cur.Info, spath)
 
 	cur.Info.RootPath = wd
 
@@ -336,11 +336,16 @@ func trim(delete bool, withs ...string) error {
 		}
 		trees = append(trees, x)
 		x.Name = string("bcdefghijkl"[k])
-		fmt.Fprintf(output, color.Green+"%s %s\n"+color.Reset, x.Name, x.Info)
+		fmt.Fprintf(output, color.Green+"%s %s (%s)\n"+color.Reset, x.Name, x.Info, w)
 	}
 
 	matches := cur.Trim(trees...)
-	matches.PruneSingleTreeGroups()
+	tots := len(matches)
+	dels := matches.PruneSingleTreeGroups()
+	fmt.Fprintf(output, "%d file groups\n", tots)
+	for t, v := range dels {
+		fmt.Fprintf(output, "%s had %d specific files not found elsewhere\n", t.Name, v)
+	}
 
 	var count, errc int
 	var groups int

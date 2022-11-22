@@ -223,20 +223,30 @@ func (r HashGroup) Intersect(n *Node) {
 	}
 }
 
-func (r HashGroup) PruneSingleTreeGroups() {
+// PruneSingleTreeGroups removes all Groups where nodes belongs to a single Tree.
+// In english, those that have only files and/or duplicate in the same Tree.
+// Returns count of deleted groups.
+func (r HashGroup) PruneSingleTreeGroups() map[*Tree]int {
+	c := make(map[*Tree]int)
 	for hash, g := range r {
-		if len(g) <= 1 {
+		if len(g) == 0 {
+			panic("match group without node")
+		}
+		if len(g) == 1 { // obvious case, just one file
 			delete(r, hash)
+			c[g[0].tree]++
 			continue
 		}
-		ts := make(map[uuid.UUID]struct{})
+		ts := make(map[*Tree]struct{})
 		for _, n := range g {
-			ts[n.tree.Info.Nonce] = struct{}{}
+			ts[n.tree] = struct{}{}
 		}
-		if len(ts) <= 1 {
+		if len(ts) == 1 { // only one tree case
 			delete(r, hash)
+			c[g[0].tree]++
 		}
 	}
+	return c
 }
 
 // Select all nodes in given tree, when
