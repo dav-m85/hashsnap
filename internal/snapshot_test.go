@@ -1,10 +1,10 @@
-package hashsnap
+package internal
 
 import (
 	"io"
 	"testing"
 
-	"github.com/dav-m85/hashsnap/memfs"
+	"github.com/dav-m85/hsnap/memfs"
 	"github.com/matryer/is"
 )
 

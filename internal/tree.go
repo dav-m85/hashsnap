@@ -1,4 +1,4 @@
-package hashsnap
+package internal
 
 import (
 	"crypto/sha1"
@@ -180,8 +180,7 @@ func (t *Tree) Check(prefix string) (missing Nodes) {
 		p := filepath.Join(prefix, t.RelPath(n))
 		_, err := lstat(p)
 		if err != nil {
-			panic(err)
-			// missing = append(missing, n)
+			missing = append(missing, n)
 		}
 	}
 	return

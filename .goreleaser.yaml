@@ -3,7 +3,7 @@ before:
     - go mod tidy
 builds:
   - 
-    main: ./cmd/hashsnap
+    main: .
     env:
       - CGO_ENABLED=0
     goos:

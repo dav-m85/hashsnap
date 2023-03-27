@@ -14,7 +14,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/dav-m85/hashsnap"
+	"github.com/dav-m85/hsnap/internal"
 	bar "github.com/schollz/progressbar/v3"
 )
 
@@ -97,13 +97,13 @@ func main() {
 	}
 	if spath == "" {
 		var err error
-		spath, err = hashsnap.LookupFrom(wd)
+		spath, err = internal.LookupFrom(wd)
 		if err != nil {
 			panic(err)
 		}
 	}
 	if spath == "" {
-		spath = filepath.Join(wd, hashsnap.STATE_NAME)
+		spath = filepath.Join(wd, internal.STATE_NAME)
 	}
 
 	// Main command switch
@@ -183,18 +183,18 @@ func cleanwd() (err error) {
 	return
 }
 
-func readTree(path string) (*hashsnap.Tree, error) {
+func readTree(path string) (*internal.Tree, error) {
 	f, err := os.OpenFile(path, os.O_RDONLY, 0666)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 
-	return hashsnap.ReadTree(f)
+	return internal.ReadTree(f)
 }
 
 func create(spy io.Writer) error {
-	if path, err := hashsnap.LookupFrom(spath); path != "" || err != nil {
+	if path, err := internal.LookupFrom(spath); path != "" || err != nil {
 		return fmt.Errorf("already a hsnap directory or child in %s: %s", path, err)
 	}
 
@@ -206,7 +206,7 @@ func create(spy io.Writer) error {
 
 	start := time.Now()
 
-	c := hashsnap.Snapshot(wd, f, spy)
+	c := internal.Snapshot(wd, f, spy)
 
 	fmt.Fprintf(output, "Encoded %d files in %s\n", c, time.Since(start))
 
@@ -255,7 +255,7 @@ func infoSingle(path string) error {
 
 	dec := gob.NewDecoder(f)
 
-	i := new(hashsnap.Info)
+	i := new(internal.Info)
 	if err = dec.Decode(i); err != nil {
 		return err
 	}
@@ -265,7 +265,7 @@ func infoSingle(path string) error {
 	var size int64
 	var count int64
 
-	err = hashsnap.DecodeNodes(dec, func(n *hashsnap.Node) error {
+	err = internal.DecodeNodes(dec, func(n *internal.Node) error {
 		if !n.Mode.IsDir() {
 			size = size + n.Size
 			count++
@@ -276,7 +276,7 @@ func infoSingle(path string) error {
 		return err
 	}
 
-	fmt.Fprintf(output, "Totalling %s and %d files\n", hashsnap.ByteSize(size), count)
+	fmt.Fprintf(output, "Totalling %s and %d files\n", internal.ByteSize(size), count)
 	return nil
 }
 
@@ -286,7 +286,7 @@ func list(paths ...string) error {
 		return err
 	}
 	path := filepath.Join(paths...)
-	var at *hashsnap.Node
+	var at *internal.Node
 	if path == "" {
 		at = cur.Root()
 	} else {
@@ -310,7 +310,7 @@ func list(paths ...string) error {
 		if x.Mode.IsDir() {
 			d = "d"
 		}
-		fmt.Fprintf(w, "%s%d(%d)\t%s\t%s\n", d, x.ID, x.ParentID, hashsnap.ByteSize(x.Size), x.Name)
+		fmt.Fprintf(w, "%s%d(%d)\t%s\t%s\n", d, x.ID, x.ParentID, internal.ByteSize(x.Size), x.Name)
 	}
 
 	w.Flush()
@@ -328,7 +328,7 @@ func trim(delete bool, withs ...string) error {
 
 	cur.Info.RootPath = wd
 
-	var trees []*hashsnap.Tree
+	var trees []*internal.Tree
 	for k, w := range withs {
 		x, err := readTree(w)
 		if err != nil {
@@ -353,7 +353,7 @@ func trim(delete bool, withs ...string) error {
 
 	if delete {
 		for _, ma := range matches {
-			in, _ := hashsnap.SplitNodes(cur, ma)
+			in, _ := internal.SplitNodes(cur, ma)
 
 			groups++
 
@@ -365,18 +365,18 @@ func trim(delete bool, withs ...string) error {
 				} else {
 					fmt.Fprintf(output, "Removed %s\n", p)
 					count++
-					waste = waste + int64(hashsnap.Nodes(in).ByteSize())
+					waste = waste + int64(internal.Nodes(in).ByteSize())
 				}
 			}
 		}
-		fmt.Fprintf(output, "%d duplicated groups, removed %d files totalling %s wasted space, %d errors\n", groups, count, hashsnap.ByteSize(waste), errc)
+		fmt.Fprintf(output, "%d duplicated groups, removed %d files totalling %s wasted space, %d errors\n", groups, count, internal.ByteSize(waste), errc)
 	} else {
 		for _, ma := range matches {
 			var str strings.Builder
-			in, out := hashsnap.SplitNodes(cur, ma)
+			in, out := internal.SplitNodes(cur, ma)
 
 			count = count + len(in)
-			bs := hashsnap.Nodes(in).ByteSize()
+			bs := internal.Nodes(in).ByteSize()
 			waste = waste + int64(bs)
 			groups++
 			if quiet {
@@ -393,7 +393,7 @@ func trim(delete bool, withs ...string) error {
 
 			fmt.Fprintln(output, str.String())
 		}
-		fmt.Fprintf(output, "%d duplicated groups, totalling %s wasted space in %d files\n", groups, hashsnap.ByteSize(waste), count)
+		fmt.Fprintf(output, "%d duplicated groups, totalling %s wasted space in %d files\n", groups, internal.ByteSize(waste), count)
 	}
 
 	if errc != 0 {

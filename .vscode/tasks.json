@@ -8,7 +8,7 @@
       "type": "shell",
       "command": "go install .",
       "options": {
-        "cwd": "${workspaceFolder}/cmd/hashsnap"
+        "cwd": "${workspaceFolder}"
       },
       "problemMatcher": [],
       "group": {

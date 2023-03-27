@@ -9,7 +9,7 @@
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "cmd/hashsnap/main.go",
+      "program": "main.go",
       "args": ["info", "-wd", "state"]
     },
     {
@@ -17,7 +17,7 @@
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "cmd/hashsnap/main.go",
+      "program": "main.go",
       "args": ["create", "-wd", "state"]
     },
     {
@@ -25,9 +25,9 @@
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "cmd/hashsnap/main.go",
+      "program": "main.go",
       "args": ["list", "-hsnap", "BLACK.hsnap2", "Montages"],
-      "cwd": "${workspaceFolder}/cmd/hashsnap"
+      "cwd": "${workspaceFolder}"
     }
   ]
 }

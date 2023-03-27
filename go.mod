@@ -1,4 +1,4 @@
-module github.com/dav-m85/hashsnap
+module github.com/dav-m85/hsnap
 
 go 1.15
 

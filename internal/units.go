@@ -1,4 +1,4 @@
-package hashsnap
+package internal
 
 import "fmt"
 
