@@ -39,6 +39,7 @@ Exploring easily an info result:
 - test extensively,
 - dedup without trimming (perhaps, as fdupes does it already quite well),
 - cleanup the code.
+- Buffer .hsnap while creating in memory...
 
 ## Inspiration
 - [mathieuancelin/duplicates](https://github.com/mathieuancelin/duplicates/blob/master/duplicates.go)
