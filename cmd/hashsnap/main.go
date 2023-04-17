@@ -49,6 +49,7 @@ var (
 	helpCmd    = flag.NewFlagSet("help", flag.ExitOnError)
 	trimCmd    = flag.NewFlagSet("trim", flag.ExitOnError)
 	listCmd    = flag.NewFlagSet("ls", flag.ExitOnError)
+	diffCmd    = flag.NewFlagSet("diff", flag.ExitOnError)
 	checkCmd   = flag.NewFlagSet("check", flag.ExitOnError)
 	versionCmd = flag.NewFlagSet("version", flag.ExitOnError)
 )
@@ -60,6 +61,7 @@ var subcommands = map[string]*flag.FlagSet{
 	nodeCmd.Name():    nodeCmd,
 	trimCmd.Name():    trimCmd,
 	listCmd.Name():    listCmd,
+	diffCmd.Name():    diffCmd,
 	checkCmd.Name():   checkCmd,
 	versionCmd.Name(): versionCmd,
 }
@@ -125,6 +127,9 @@ func main() {
 
 	case infoCmd.Name():
 		err = info(cm.Args()...)
+
+	case diffCmd.Name():
+		err = diff(cm.Args()...)
 
 	case checkCmd.Name():
 		err = check()
@@ -241,6 +246,47 @@ func info(paths ...string) error {
 			return err
 		}
 	}
+	return nil
+}
+
+func diff(paths ...string) error {
+	if paths == nil {
+		panic("give me some paths")
+	}
+
+	matches := make(hashsnap.HashGroup)
+
+	var trees []*hashsnap.Tree
+
+	for _, p := range paths {
+		t, err := readTree(p)
+		t.Name = p
+		trees = append(trees, t)
+		if err != nil {
+			return err
+		}
+		matches.AddTree(t)
+	}
+	gr := matches.Groups()
+	gr = gr.Filter(func(n hashsnap.Nodes) bool {
+		t := n.Trees()
+		return len(t) == 1 && t[0] == trees[0]
+	})
+
+	tots := len(matches)
+	dels := matches.PruneSingleTreeGroups()
+
+	fmt.Fprintf(output, "%d file groups\n", tots)
+	for t, v := range dels {
+		fmt.Fprintf(output, "%s had %d specific files not found elsewhere\n", t.Name, v)
+	}
+
+	for _, gg := range gr {
+		for _, x := range gg {
+			fmt.Fprintf(output, "\t%s\t%s\n", hashsnap.ByteSize(x.Size), trees[0].RelPath(x))
+		}
+	}
+
 	return nil
 }
 

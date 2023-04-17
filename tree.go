@@ -187,8 +187,38 @@ func (t *Tree) Check(prefix string) (missing Nodes) {
 	return
 }
 
+// Group = Nodes = []Node
+// Groups = []Group = []Nodes = [][]Node
+
 // HashGroup helps comparing Hashes pretty quickly
 type HashGroup map[[sha1.Size]byte][]*Node
+
+func (r HashGroup) AddTree(t *Tree) {
+	for _, n := range t.nodes {
+		r.Add(n)
+	}
+}
+
+func (r HashGroup) Groups() Groups {
+	var res Groups
+	for _, g := range r {
+		res = append(res, Nodes(g))
+	}
+	return res
+}
+
+type Groups []Nodes
+
+// if predicate is true, keep
+func (gs Groups) Filter(predicate func(Nodes) bool) Groups {
+	var f Groups
+	for _, g := range gs {
+		if predicate(g) {
+			f = append(f, g)
+		}
+	}
+	return f
+}
 
 // Add a Node slice to HashGroup
 func (r HashGroup) Add(n *Node) {
@@ -250,6 +280,7 @@ func (r HashGroup) PruneSingleTreeGroups() map[*Tree]int {
 }
 
 // Select all nodes in given tree, when
+// Only useful for tests??? Reconsider it
 func (r HashGroup) Select(t *Tree) (ns []*Node) {
 	for _, g := range r {
 		for _, n := range g {
@@ -269,6 +300,18 @@ func (ns Nodes) ByteSize() ByteSize {
 	} else {
 		return ByteSize(ns[0].Size * int64(len(ns)))
 	}
+}
+
+func (ns Nodes) Trees() []*Tree {
+	ts := make(map[*Tree]struct{})
+	for _, n := range ns {
+		ts[n.tree] = struct{}{}
+	}
+	var res []*Tree
+	for t := range ts {
+		res = append(res, t)
+	}
+	return res
 }
 
 // SplitNodes by tree appartenance

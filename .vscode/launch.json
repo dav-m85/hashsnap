@@ -28,6 +28,18 @@
       "program": "cmd/hashsnap/main.go",
       "args": ["list", "-hsnap", "BLACK.hsnap2", "Montages"],
       "cwd": "${workspaceFolder}/cmd/hashsnap"
+    },
+    {
+      "name": "diff",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "cmd/hashsnap/main.go",
+      "args": ["diff", "_archive/BLACK.hsnap2", "_archive/TOSHI_new.hsnap2"],
+      "cwd": "${workspaceFolder}"
     }
+
+
+    
   ]
 }
